@@ -1,5 +1,5 @@
 import {
-  BigintFour, BigintSix, BigintTwelve, ICurve, PairingFriendly, SexticTwist, SignOfX
+  BigintFour, BigintSix, BigintTwelve, FieldStatic, ICurve, PairingFriendly, SexticTwist, SignOfX
 } from './types';
 import {
   FQP
@@ -15,6 +15,10 @@ export default class Fq12 extends FQP<Fq12, Fq4, [Fq4, Fq4, Fq4]> {
 
   public static ONE(curve: ICurve) {
     return new Fq12(curve, [Fq4.ONE(curve), Fq4.ZERO(curve), Fq4.ZERO(curve)]);
+  }
+
+  public static fromConstant(curve: ICurve, c: bigint) {
+    return Fq2.fromTuple(curve, [c, 0n]);
   }
 
   static fromTuple(curve: ICurve, t: BigintTwelve): Fq12 {
@@ -387,3 +391,7 @@ export default class Fq12 extends FQP<Fq12, Fq4, [Fq4, Fq4, Fq4]> {
     return res;
   }
 }
+
+// @ts-ignore
+const typeTester: FieldStatic<Fq12> = Fq12;
+typeTester;

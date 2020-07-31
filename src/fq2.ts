@@ -10,6 +10,10 @@ import {
 import Fq from './fq';
 
 export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
+  static fromTuple(curve: ICurve, t: BigintTuple): Fq2 {
+    return new Fq2(curve, [new Fq(curve, t[0]), new Fq(curve, t[1])]);
+  }
+
   public static ROOT(curve: ICurve) {
     return new Fq(curve, -1n);
   }
@@ -24,6 +28,10 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
 
   public static ONE(curve: ICurve) {
     return new Fq2(curve, [1n, 0n]);
+  }
+
+  public static fromConstant(curve: ICurve, c: bigint) {
+    return Fq2.fromTuple(curve, [c, 0n]);
   }
 
   // public static ORDER(curve: ICurve): bigint {
@@ -56,6 +64,13 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
   }
   get values(): BigintTuple {
     return this.c.map((c) => c.value) as BigintTuple;
+  }
+
+  public sign(): bigint {
+    const p1 = this.c[0].value & 1n;
+    const p2 = this.c[1].value & 1n;
+    const u = this.c[0].isZero() ? 1n : 0n;
+    return p1 ^ ((p1^p2) & u);
   }
 
   multiply(rhs: Fq2 | bigint): Fq2 {
@@ -93,10 +108,15 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
       this.c[1].negate(), this.c[0]
     ]);
   }
-
   mulQNR(): Fq2 {
     // assume QNR=2^i+sqrt(-1)
     return (this.times_i().add(this.muli(BigInt(1 << this.curve.QNRI))));
+  }
+
+  divQNR(): Fq2 {
+    // assume QNR=2^i+sqrt(-1)
+    const z = new Fq2(this.curve, [Fq.fromConstant(this.curve, BigInt(1 << this.curve.QNRI)), Fq.ONE(this.curve)]);
+    return this.multiply(z.invert());
   }
 
   // We wish to find the multiplicative inverse of a nonzero
@@ -146,5 +166,34 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
         this.c[0].multiply(rhs), this.c[1].multiply(rhs)
       ]
     );
+  }
+
+  public sqrt(): Fq2 {
+    let w1 = this.c[1];
+    let w2 = this.c[0];
+    w1 = w1.multiply(w1);
+    w2 = w2.multiply(w2);
+    w1 = w1.add(w2);
+    w1 = w1.sqrt();
+    w2 = this.c[0];
+    w2 = w2.add(w1);
+    w2 = w2.div(2n);
+    if (w2.qr().valueOf() != 1n) {
+      w2 = this.c[0];
+      w2 = w2.subtract(w1);
+      w2 = w2.div(2n);
+    }
+    w2 = w2.sqrt();
+    const c0 = w2;
+    w2 = w2.add(w2);
+    w2 = w2.invert();
+    const c1 = this.c[1].multiply(w2);
+    return new Fq2(this.curve, [c0, c1]);
+  }
+
+  public qr(): bigint {
+    const w = this.conjugate()
+      .multiply(this);
+    return w.c[0].qr();
   }
 }

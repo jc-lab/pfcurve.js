@@ -76,6 +76,20 @@ describe('bn462 Point', () => {
       expect(double.equals(a.multiplyUnsafe(2n))).true;
       expect(double.equals(a.multiply(2n))).true;
     });
+    it('uncompressed toBytes/fromBytes', () => {
+      const a = PointG1.BASE(CURVE);
+      const b = a.toBytes(false);
+      const c = PointG1.fromBytes(CURVE, b);
+      expect(a).eql(c);
+      expect(b).eql(Buffer.from('0421a6d67ef250191fadba34a0a30160b9ac9264b6f95f63b3edbec3cf4b2e689db1bbb4e69a416a0b1e79239c0372e5cd70113c98d91f36b6980d0118ea0460f7f7abb82b33676a7432a490eeda842cccfa7d788c659650426e6af77df11b8ae40eb80f475432c66600622ecaa8a5734d36fb03de', 'hex'));
+    });
+    it('compressed toBytes/fromBytes', () => {
+      const a = PointG1.BASE(CURVE);
+      const b = a.toBytes(true);
+      const c = PointG1.fromBytes(CURVE, b);
+      expect(a).eql(c);
+      expect(b).eql(Buffer.from('0221a6d67ef250191fadba34a0a30160b9ac9264b6f95f63b3edbec3cf4b2e689db1bbb4e69a416a0b1e79239c0372e5cd70113c98d91f36b6980d', 'hex'));
+    });
   });
   describe('Point with Fq2 coordinates', () => {
     it('Point equality', () => {
@@ -138,6 +152,20 @@ describe('bn462 Point', () => {
         new Fq2(CURVE, [1n, 0n]),
       );
       expect(() => a.assertValidity()).throw();
+    });
+    it('uncompressed toBytes/fromBytes', () => {
+      const a = PointG2.BASE(CURVE);
+      const b = a.toBytes(false);
+      const c = PointG2.fromBytes(CURVE, b);
+      expect(a).eql(c);
+      expect(b).eql(Buffer.from('040257ccc85b58dda0dfb38e3a8cbdc5482e0337e7c1cd96ed61c913820408208f9ad2699bad92e0032ae1f0aa6a8b48807695468e3d934ae1e4df1d2e4343e8599102af8edca849566ba3c98e2a354730cbed9176884058b18134dd86bae555b783718f50af8b59bf7e850e9b73108ba6aa8cd2830a0650439da22c1979517427a20809eca035634706e23c3fa7a6bb42fe810f1399a1f41c9ddae32e03695a140e7b11d7c3376e5b68df0db7154e073ef0cbd438cbe0172c8ae37306324d44d5e6b0c69ac57b393f1ab370fd725cc647692444a04ef87387aa68d53743493b9eba14cc552ca2a93a', 'hex'));
+    });
+    it('compressed toBytes/fromBytes', () => {
+      const a = PointG2.BASE(CURVE);
+      const b = a.toBytes(true);
+      const c = PointG2.fromBytes(CURVE, b);
+      expect(a).eql(c);
+      expect(b).eql(Buffer.from('020257ccc85b58dda0dfb38e3a8cbdc5482e0337e7c1cd96ed61c913820408208f9ad2699bad92e0032ae1f0aa6a8b48807695468e3d934ae1e4df1d2e4343e8599102af8edca849566ba3c98e2a354730cbed9176884058b18134dd86bae555b783718f50af8b59bf7e850e9b73108ba6aa8cd283', 'hex'));
     });
   });
   it('should be doubled and placed on curve vector 1', () => {

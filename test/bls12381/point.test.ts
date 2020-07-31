@@ -149,6 +149,20 @@ describe('bls12-381 Point', () => {
       expect(double).eql(a.multiply(2n));
       expect(double).eql(a.add(a));
     });
+    it('uncompressed toBytes/fromBytes', () => {
+      const a = PointG1.BASE(CURVE);
+      const b = a.toBytes(false);
+      const c = PointG1.fromBytes(CURVE, b);
+      expect(a).eql(c);
+      expect(b).eql(Buffer.from('0417f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb08b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1', 'hex'));
+    });
+    it('compressed toBytes/fromBytes', () => {
+      const a = PointG1.BASE(CURVE);
+      const b = a.toBytes(true);
+      const c = PointG1.fromBytes(CURVE, b);
+      expect(a).eql(c);
+      expect(b).eql(Buffer.from('0317f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb', 'hex'));
+    });
   });
   describe('Point with Fq2 coordinates', () => {
     it('Point equality', () => {
@@ -415,6 +429,20 @@ describe('bls12-381 Point', () => {
     for (const k of keys) {
       expect(G.multiply(k).equals(G.multiplyUnsafe(k))).true;
     }
+  });
+  it('uncompressed toBytes/fromBytes', () => {
+    const a = PointG2.BASE(CURVE);
+    const b = a.toBytes(false);
+    const c = PointG2.fromBytes(CURVE, b);
+    expect(a).eql(c);
+    expect(b).eql(Buffer.from('04024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb813e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e0ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b828010606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be', 'hex'));
+  });
+  it('compressed toBytes/fromBytes', () => {
+    const a = PointG2.BASE(CURVE);
+    const b = a.toBytes(true);
+    const c = PointG2.fromBytes(CURVE, b);
+    expect(a).eql(c);
+    expect(b).eql(Buffer.from('03024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb813e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e', 'hex'));
   });
   // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-07#section-8.8.2
   const H_EFF = 0xbc69f08f2ee75b3584c6a0ea91b352888e2a8e9145ad7689986ff031508ffe1329c2f178731db956d82bf015d1212b02ec0ec69d7477c1ae954cbc06689f6a359894c0adebbf6b4e8020005aaa95551n;

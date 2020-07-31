@@ -1,5 +1,8 @@
 import {
-  Bytes, ICurve, PrivateKey
+  BufferConstructor,
+  Bytes,
+  ICurve,
+  PrivateKey
 } from './types';
 import Fq from './fq';
 import PointG1 from './point-g1';
@@ -79,8 +82,8 @@ export function hexToBytes(hex: string) {
   return result;
 }
 
-export function concatBytes(...bytes: Bytes[]) {
-  return new Uint8Array(
+export function concatBytes<T extends Uint8Array>(bufferConstructor: BufferConstructor<T>, ...bytes: (T | string)[]): T {
+  return bufferConstructor.from(
     bytes.reduce((res: number[], bytesView: Bytes) => {
       bytesView = bytesView instanceof Uint8Array ? bytesView : hexToBytes(bytesView);
       return [...res, ...bytesView];
@@ -88,7 +91,7 @@ export function concatBytes(...bytes: Bytes[]) {
   );
 }
 
-export function bytesToNumberBE(bytes: Bytes) {
+export function bytesToNumberBE(bytes: Bytes): bigint {
   if (typeof bytes === 'string') {
     return hexToNumberBE(bytes);
   }
@@ -99,26 +102,26 @@ export function bytesToNumberBE(bytes: Bytes) {
   return value;
 }
 
-export function padStart(bytes: Uint8Array, count: number, element: number) {
+export function padStart<T extends Uint8Array>(bufferConstructor: BufferConstructor<T>, bytes: T, count: number, element: number): T {
   if (bytes.length >= count) {
     return bytes;
   }
   const diff = count - bytes.length;
-  const elements = Array(diff)
+  const elements = Array<number>(diff)
     .fill(element)
     .map((i: number) => i);
-  return concatBytes(new Uint8Array(elements), bytes);
+  return concatBytes(bufferConstructor, bufferConstructor.from(elements), bytes);
 }
 
-export function toBytesBE(num: bigint | number | string, padding: number = 0) {
+export function toBytesBE<TBUF extends Uint8Array>(bufferConstructor: BufferConstructor<TBUF>, num: bigint | number | string, padding: number = 0): TBUF {
   let hex = typeof num === 'string' ? num : num.toString(16);
   hex = hex.length & 1 ? `0${hex}` : hex;
   const len = hex.length / 2;
-  const u8 = new Uint8Array(len);
+  const u8 = bufferConstructor.from(new Array<number>(len));
   for (let j = 0, i = 0; i < hex.length && i < len * 2; i += 2, j++) {
     u8[j] = parseInt(hex[i] + hex[i + 1], 16);
   }
-  return padStart(u8, padding, 0);
+  return padStart(bufferConstructor, u8, padding, 0);
 }
 
 export function toBigInt(num: string | Uint8Array | bigint | number) {
@@ -133,6 +136,7 @@ export function normalizePrivKey(curve: ICurve, privateKey: PrivateKey): Fq {
 }
 
 // P = pk x G
-export function getPublicKey(curve: ICurve, privateKey: PrivateKey): Buffer {
-  return PointG1.fromPrivateKey(curve, privateKey).toBytes();
+export function getPublicKey<TBUF extends Uint8Array>(curve: ICurve, privateKey: PrivateKey, compress = true, bufferConstructor?: BufferConstructor<TBUF>): TBUF {
+  const _bufferConstructor: BufferConstructor<TBUF> = bufferConstructor || Buffer as any;
+  return PointG1.fromPrivateKey(curve, privateKey).toBytes(compress, _bufferConstructor);
 }

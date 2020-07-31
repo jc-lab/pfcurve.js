@@ -1,5 +1,5 @@
 import {
-  Field, ICurve
+  Field, FieldStatic, ICurve
 } from './types';
 import {
   mod, powMod, bitLen, sqrtMod
@@ -36,6 +36,10 @@ export default class Fq implements Field<Fq> {
 
   public static ONE(curve: ICurve) {
     return new Fq(curve, 1n);
+  }
+
+  public static fromConstant(curve: ICurve, c: bigint) {
+    return new Fq(curve, c);
   }
 
   isSquare(): boolean {
@@ -112,3 +116,7 @@ export default class Fq implements Field<Fq> {
     return str.slice(0, 2) + '.' + str.slice(-2);
   }
 }
+
+// @ts-ignore
+const typeTester: FieldStatic<Fq> = Fq;
+typeTester;

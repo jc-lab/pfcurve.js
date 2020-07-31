@@ -1,6 +1,14 @@
 export type Bytes = Uint8Array | string;
 export type PrivateKey = Bytes | bigint | number;
 
+export type BufferConstructor<T extends Uint8Array> = {
+  from(data: number[]): T;
+};
+
+export function bufferAlloc<T extends Uint8Array>(bufferConstructor: BufferConstructor<T>, size: number): T {
+  return bufferConstructor.from(new Array<number>(size));
+}
+
 // Finite field
 export interface Field<T> {
   isZero(): boolean;
@@ -15,7 +23,11 @@ export interface Field<T> {
   div(rhs: T | bigint): T;
 }
 
-export type FieldStatic<T extends Field<T>> = { ZERO(curve: ICurve): T; ONE(curve: ICurve): T };
+export type FieldStatic<T extends Field<T>> = {
+  ZERO(curve: ICurve): T;
+  ONE(curve: ICurve): T;
+  fromConstant(curve: ICurve, c: bigint): T;
+};
 
 export interface IECPoint<T extends Field<T>> {
   isInf(): boolean;

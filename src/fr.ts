@@ -1,5 +1,5 @@
 import {
-  Field, ICurve
+  Field, FieldStatic, ICurve
 } from './types';
 import {
   mod, powMod, bitLen
@@ -23,15 +23,15 @@ export default class Fr implements Field<Fr> {
   }
 
   public get order(): bigint {
-    return this.curve.P;
+    return this.curve.r;
   }
 
   public get maxBits() {
-    return bitLen(this.curve.P);
+    return bitLen(this.curve.r);
   }
 
   public static MAX_BITS(curve: ICurve) {
-    return bitLen(curve.P);
+    return bitLen(curve.r);
   }
 
   public static ZERO(curve: ICurve) {
@@ -40,6 +40,10 @@ export default class Fr implements Field<Fr> {
 
   public static ONE(curve: ICurve) {
     return new Fr(curve, 1n);
+  }
+
+  public static fromConstant(curve: ICurve, c: bigint) {
+    return new Fr(curve, c);
   }
 
   isZero(): boolean {
@@ -129,3 +133,7 @@ export default class Fr implements Field<Fr> {
     return '0x' + this.value.toString(16).padStart(64, '0');
   }
 }
+
+// @ts-ignore
+const typeTester: FieldStatic<Fr> = Fr;
+typeTester;

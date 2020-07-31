@@ -1,5 +1,5 @@
 import {
-  ICurve, BigintFour
+  ICurve, BigintFour, FieldStatic
 } from './types';
 import {
   FQP
@@ -18,6 +18,10 @@ export default class Fq4 extends FQP<Fq4, Fq2, [Fq2, Fq2]> {
 
   public static ONE(curve: ICurve) {
     return new Fq4(curve, [Fq2.ONE(curve), Fq2.ZERO(curve)]);
+  }
+
+  public static fromConstant(curve: ICurve, c: bigint) {
+    return Fq4.fromTuple(curve, [c, 0n, 0n, 0n]);
   }
 
   public toTuple(): BigintFour {
@@ -109,3 +113,8 @@ export default class Fq4 extends FQP<Fq4, Fq2, [Fq2, Fq2]> {
     return new Fq4(this.curve, [a, b]);
   }
 }
+
+// @ts-ignore
+const typeTester: FieldStatic<Fq4> = Fq4;
+typeTester;
+

@@ -1,38 +1,12 @@
-import {
-  CurveType, ICurve, PrivateKey
-} from './types';
-import {
-  bitGet
-} from './utils';
-import {
-  normalizePrivKey
-} from './intl';
-import {
-  ProjectivePoint
-} from './point-base';
+import {bufferAlloc, BufferConstructor, CurveType, Field, FieldStatic, ICurve, PrivateKey} from './types';
+import {bitGet, toBigInt, toBytesBE} from './utils';
+import {normalizePrivKey} from './intl';
+import {ProjectivePoint} from './point-base';
 import Fq from './fq';
-import Fq2 from './fq2';
 
-export function RHS(curve: ICurve, x: bigint): Fq {
-  const fx = new Fq(curve, x);
-  const fa = new Fq(curve, curve.A);
-  const fb = new Fq(curve, curve.B);
+export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
+  public static readonly Field: FieldStatic<Fq> = Fq;
 
-  switch (curve.curveType) {
-  case CurveType.WEIERSTRASS:
-    return fx.pow(3n).add(fa.multiply(x)).add(fb);
-  case CurveType.EDWARDS:
-    return fa.multiply(fx.square()).subtract(Fq.ONE(curve))
-      .multiply(
-        fb.multiply(fx.square()).subtract(Fq.ONE(curve)).invert()
-      );
-  case CurveType.MONTGOMERY:
-    return fx.pow(3n).add(fa.multiply(fx.pow(3n)));
-  }
-  throw new Error('Unknown curve type');
-}
-
-export default class PointG1 extends ProjectivePoint<Fq> {
   public static BASE(curve: ICurve) {
     return new PointG1(
       curve,
@@ -61,7 +35,37 @@ export default class PointG1 extends ProjectivePoint<Fq> {
   }
 
   constructor(curve: ICurve, x: Fq, y: Fq, z: Fq) {
-    super(curve, x, y, z, Fq);
+    super(curve, x, y, z, Fq, PointG1);
+  }
+
+  public static RHS(curve: ICurve, x: bigint): Fq {
+    const fx = Fq.fromConstant(curve, x);
+    const fa = PointG1.CURVE_A(curve);
+    const fb = PointG1.CURVE_B(curve);
+
+    /*
+    *
+    *
+    if curve.CurveType == WEIERSTRASS:
+        return x * x * x + ECp.A * x + ECp.B
+    if curve.CurveType == EDWARDS:
+        return (ECp.A * x * x - Fp(1)) * ((ECp.B * x * x - Fp(1)).inverse())
+    if curve.CurveType == MONTGOMERY:
+        return x * x * x + ECp.A * x * x + x
+    * */
+
+    switch (curve.curveType) {
+    case CurveType.WEIERSTRASS:
+      return fx.multiply(fx.multiply(x).add(fa)).add(fb);
+    case CurveType.EDWARDS:
+      return fa.multiply(fx.square()).subtract(Fq.ONE(curve))
+        .multiply(
+          fb.multiply(fx.square()).subtract(Fq.ONE(curve)).invert()
+        );
+    case CurveType.MONTGOMERY:
+      return fx.pow(3n).add(fa.multiply(fx.pow(3n)));
+    }
+    throw new Error('Unknown curve type');
   }
 
   public isInf() {
@@ -83,7 +87,7 @@ export default class PointG1 extends ProjectivePoint<Fq> {
     return false;
   }
 
-  public equals(rhs: ProjectivePoint<Fq>) {
+  public equals(rhs: ProjectivePoint<Fq, PointG1>) {
     const a1 = this.x.multiply(rhs.z);
     const a2 = rhs.x.multiply(this.z);
     const b1 = this.y.multiply(rhs.z);
@@ -232,7 +236,7 @@ export default class PointG1 extends ProjectivePoint<Fq> {
     return this.getPoint(x, y, z);
   }
 
-  public add(rhs: ProjectivePoint<Fq>): this {
+  public add(rhs: ProjectivePoint<Fq, PointG1>): this {
     let {x, y, z} = this;
     let A: Fq, B: Fq, C: Fq, D: Fq, E: Fq, F: Fq, G: Fq, b: bigint, t0: Fq, t1: Fq, t2: Fq, t3: Fq, t4: Fq, x3: Fq, y3: Fq, z3: Fq;
 
@@ -431,17 +435,16 @@ export default class PointG1 extends ProjectivePoint<Fq> {
 
   public static fromX(curve: ICurve, x: bigint, s: bigint = 0n) {
     const fx = new Fq(curve, x);
-    const rhs = RHS(curve, x);
+    const rhs = PointG1.RHS(curve, x);
     if (rhs.qr() !== 1n) {
       throw new Error('qr != 1');
     }
     const fz = Fq.ONE(curve);
     let fy: Fq | undefined = undefined;
     if (curve.curveType != CurveType.MONTGOMERY) {
-      fy = rhs.square();
+      fy = rhs.sqrt();
       if (bitGet(fy.value, 0) != s) {
-        fy = fy.invert();
-        // fy = -fy;
+        fy = fy.negate();
       }
     }
     if (!fy) {
@@ -453,10 +456,10 @@ export default class PointG1 extends ProjectivePoint<Fq> {
   public static fromXY(curve: ICurve, x: bigint, y: bigint, s: bigint = 0n) {
     const fx = new Fq(curve, x);
     const fy = new Fq(curve, y);
-    const rhs = RHS(curve, x);
+    const rhs = PointG1.RHS(curve, x);
 
-    if (!fx.square().equals(rhs)) {
-      throw new Error('x*x != rhs');
+    if (!fy.square().equals(rhs)) {
+      throw new Error('y*y != rhs');
     }
     const fz = Fq.ONE(curve);
 
@@ -479,30 +482,65 @@ export default class PointG1 extends ProjectivePoint<Fq> {
   }
 
   // Can be compressed to just x
-  toBytes(compress: boolean = true) {
+  public toBytes(): Buffer;
+  public toBytes(compress: boolean): Buffer;
+  public toBytes<TBUF extends Uint8Array>(compress: boolean, bufferConstructor: BufferConstructor<TBUF>): TBUF;
+  public toBytes<TBUF extends Uint8Array>(_compress?: boolean, bufferConstructor?: BufferConstructor<TBUF>): TBUF {
+    const compress = (typeof _compress === 'undefined') ? true : _compress;
+    const _bufferConstructor: BufferConstructor<TBUF> = bufferConstructor ? bufferConstructor : Buffer as any;
+
     const FS = this.curve.EFS;
-    let PK: Buffer;
-    let W = Buffer.from(this.x.value.toString(16));
-    if (this.curve.curveType == CurveType.MONTGOMERY) {
+    let PK: TBUF;
+    let W = toBytesBE(_bufferConstructor, this.x.value);
+    if (this.curve.curveType === CurveType.MONTGOMERY) {
       return W;
     }
     if (compress) {
       const [x, b] = this.getXS();
-      PK = Buffer.alloc(FS + 1);
+      PK = bufferAlloc(_bufferConstructor, FS + 1);
       if (b === 0n) {
         PK[0] = 2;
       } else {
         PK[0] = 3;
       }
-      W.copy(PK, 1);
+      for (let i = 0; i < W.length; i++) {
+        PK[1 + i] = W[i];
+      }
     } else {
-      PK = Buffer.alloc(2 * FS + 1);
+      PK = bufferAlloc(_bufferConstructor, 2 * FS + 1);
       PK[0] = 4;
-      W.copy(PK, 1);
-      W = Buffer.from(this.y.value.toString(16));
-      W.copy(PK, 1 + FS);
+      for (let i = 0; i < W.length; i++) {
+        PK[1 + i] = W[i];
+      }
+      W = toBytesBE(_bufferConstructor, this.y.value.toString(16));
+      for (let i = 0; i < W.length; i++) {
+        PK[1 + FS + i] = W[i];
+      }
     }
     return PK;
+  }
+
+  public static fromBytes(curve: ICurve, w: Uint8Array): PointG1 {
+    const FS = curve.EFS;
+    if (curve.curveType === CurveType.MONTGOMERY) {
+      const x = toBigInt(w.subarray(0, FS));
+      return PointG1.fromX(curve, x);
+    }
+    const t = w[0];
+    const sp1 = FS + 1;
+    const sp2 = sp1 + FS;
+    const x = toBigInt(w.subarray(1, sp1));
+    if (t === 4) {
+      const y = toBigInt(w.subarray(sp1, sp2));
+      return PointG1.fromXY(curve, x, y);
+    } else {
+      if (t === 2) {
+        return PointG1.fromX(curve, x, 0n);
+      } else if (t === 3) {
+        return PointG1.fromX(curve, x, 1n);
+      }
+      throw new Error('Wrong value');
+    }
   }
 
   // Sparse multiplication against precomputed coefficients
@@ -516,5 +554,13 @@ export default class PointG1 extends ProjectivePoint<Fq> {
 
   protected _curveB(): Fq {
     return new Fq(this.curve, this.curve.B);
+  }
+
+  public static CURVE_A(curve: ICurve): Fq {
+    return new Fq(curve, curve.A);
+  }
+
+  public static CURVE_B(curve: ICurve): Fq {
+    return new Fq(curve, curve.B);
   }
 }

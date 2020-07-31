@@ -1,5 +1,5 @@
 import {
-  CurveType, Field, ICurve, IECPoint, PairingFriendly, SignOfX
+  CurveType, Field, ICurve, IECPoint, PairingFriendly, FieldStatic
 } from './types';
 import {
   bitLen
@@ -9,15 +9,19 @@ import {
 } from './intl';
 import Fq from './fq';
 
-type FieldStatic<T extends Field<T>> = { ZERO(curve: ICurve): T; ONE(curve: ICurve): T };
 type Constructor<T extends Field<T>> = { new (curve: ICurve, ...args: any[]): T } & FieldStatic<T> & {
   MAX_BITS(curve: ICurve): number;
 };
 
-export type PointConstructor<TF extends Field<TF>, TP extends ProjectivePoint<TF>> = { new(...args: any[]): TP };
+export type PointConstructor<TF extends Field<TF>, TP extends ProjectivePoint<TF, TP>> = {
+  readonly Field: FieldStatic<TF>;
+  BASE(curve: ICurve): TP;
+  CURVE_A(curve: ICurve): TF;
+  CURVE_B(curve: ICurve): TF;
+};
 
 // x=X/Z, y=Y/Z
-export abstract class ProjectivePoint<T extends Field<T>> implements IECPoint<T> {
+export abstract class ProjectivePoint<T extends Field<T>, TP extends ProjectivePoint<T, TP>> implements IECPoint<T> {
   private _MPRECOMPUTES: undefined | [number, this[]];
 
   constructor(
@@ -25,7 +29,8 @@ export abstract class ProjectivePoint<T extends Field<T>> implements IECPoint<T>
     public readonly x: T,
     public readonly y: T,
     public readonly z: T,
-    private readonly C: Constructor<T>
+    private readonly C: Constructor<T>,
+    private readonly PC: PointConstructor<T, TP>
   ) {}
 
   isZero() {
@@ -83,7 +88,7 @@ export abstract class ProjectivePoint<T extends Field<T>> implements IECPoint<T>
     );
   }
 
-  toAffineBatch(points: ProjectivePoint<T>[]): [T, T][] {
+  toAffineBatch(points: ProjectivePoint<T, TP>[]): [T, T][] {
     const toInv = genInvertBatch(
       this.curve,
       this.C,
@@ -96,7 +101,7 @@ export abstract class ProjectivePoint<T extends Field<T>> implements IECPoint<T>
     return this.toAffineBatch(points).map((t) => this.fromAffineTuple(t));
   }
 
-  public subtract(rhs: ProjectivePoint<T>): this {
+  public subtract(rhs: ProjectivePoint<T, TP>): this {
     if (this.constructor != rhs.constructor)
       throw new Error(
         `ProjectivePoint#subtract: this is ${this.constructor}, but rhs is ${rhs.constructor}`
@@ -210,6 +215,10 @@ export abstract class ProjectivePoint<T extends Field<T>> implements IECPoint<T>
     if (n <= 0) {
       throw new Error('Point#multiply: invalid scalar, expected positive integer');
     }
+    if (bitLen(n) > this.maxBits())
+      throw new Error(
+        'ProjectivePoint#multiply: scalar has more bits than maxBits, shoulnd\'t happen'
+      );
     let p = this.getZero();
     let d: this = this;
     while (n > 0n) {
