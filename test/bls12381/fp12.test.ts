@@ -5,7 +5,7 @@ const expect = chai.expect;
 
 import * as lib from '../../src';
 import { BigintFour, Fq, Fq12 } from '../../src';
-const CURVE = lib.curves['bls12-381'];
+const CURVE = lib.findCurve('Fp381BLS12') as lib.ICurve;
 import {
   BigintTwelve
 } from '../../src/types';

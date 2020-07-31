@@ -5,7 +5,7 @@ const expect = chai.expect;
 
 import * as lib from '../../src';
 import { BigintTwelve, Fq, Fq12 } from '../../src';
-const CURVE = lib.curves['bn462'];
+const CURVE = lib.findCurve('Fp462BN') as lib.ICurve;
 
 const NUM_RUNS = Number(process.env.RUNS_COUNT || 10); // reduce to 1 to shorten test time
 

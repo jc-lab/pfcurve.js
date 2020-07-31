@@ -80,6 +80,8 @@ export enum PairingFriendly {
 }
 
 export interface ICurve {
+  name: string;
+
   curveType: CurveType;
   sexticTwist: SexticTwist;
   signOfX: SignOfX;

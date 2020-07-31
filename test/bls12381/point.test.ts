@@ -4,7 +4,7 @@ const expect = chai.expect;
 
 import * as lib from '../../src';
 import { Fq, Fq2, PointG1, PointG2 } from '../../src';
-const CURVE = lib.curves['bls12-381'];
+const CURVE = lib.findCurve('Fp381BLS12') as lib.ICurve;
 
 const NUM_RUNS = Number(process.env.RUNS_COUNT || 10); // reduce to 1 to shorten test time
 
@@ -342,6 +342,7 @@ describe('bls12-381 Point', () => {
   });
   it('wNAF multiplication same as unsafe (G1, W=1)', () => {
     const G = PointG1.BASE(CURVE).negate().negate(); // create new point
+    G.calcMultiplyPrecomputes(1);
     const keys = [
       0x28b90deaf189015d3a325908c5e0e4bf00f84f7e639b056ff82d7e70b6eede4cn,
       0x1a0111ea397fe69a4bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaaan,
@@ -386,6 +387,7 @@ describe('bls12-381 Point', () => {
   });
   it('wNAF multiplication same as unsafe (G2, W=1)', () => {
     const G = PointG2.BASE(CURVE).negate().negate();
+    G.calcMultiplyPrecomputes(1);
     const keys = [
       0x28b90deaf189015d3a325908c5e0e4bf00f84f7e639b056ff82d7e70b6eede4cn,
       0x1a0111ea397fe69a4bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaaan,

@@ -145,7 +145,6 @@ export abstract class ProjectivePoint<T extends Field<T>, TP extends ProjectiveP
     this._MPRECOMPUTES = undefined;
   }
 
-
   // MONTGOMERY curve maybe some different
   private wNAF(n: bigint): [this, this] {
     let W: number, precomputes: this[];

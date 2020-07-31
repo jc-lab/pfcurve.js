@@ -5,7 +5,7 @@ const expect = chai.expect;
 import * as lib from '../../src';
 import { PointG1, PointG2, Fq12, pairing } from '../../src';
 
-const CURVE = lib.curves['bn462'];
+const CURVE = lib.findCurve('Fp462BN') as lib.ICurve;
 
 const G1 = PointG1.BASE(CURVE);
 const G2 = PointG2.BASE(CURVE);

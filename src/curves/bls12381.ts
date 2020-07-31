@@ -3,6 +3,8 @@ import {
 } from '../types';
 
 export const CURVE: ICurve = {
+  name: 'Fp381BLS12',
+
   curveType: CurveType.WEIERSTRASS,
   sexticTwist: SexticTwist.M_TYPE,
   signOfX: SignOfX.NEGATIVEX,

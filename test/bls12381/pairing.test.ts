@@ -5,11 +5,12 @@ const expect = chai.expect;
 import * as lib from '../../src';
 import { PointG1, PointG2, Fq12, pairing } from '../../src';
 
-const CURVE = lib.curves['bls12-381'];
+const CURVE = lib.findCurve('Fp381BLS12') as lib.ICurve;
 
 const G1 = PointG1.BASE(CURVE);
 const G2 = PointG2.BASE(CURVE);
 const CURVE_ORDER = CURVE.r;
+
 
 const optimalAtePairingTestVector = Fq12.fromTuple(CURVE, [
   0x11619b45f61edfe3b47a15fac19442526ff489dcda25e59121d9931438907dfd448299a87dde3a649bdba96e84d54558n,

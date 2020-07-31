@@ -11,7 +11,7 @@ import {
   pairing
 } from '../../src/pairing';
 
-const CURVE = lib.curves['bls12-381'];
+const CURVE = lib.findCurve('Fp381BLS12') as lib.ICurve;
 
 const G1 = PointG1.BASE(CURVE);
 const G2 = PointG2.BASE(CURVE);
