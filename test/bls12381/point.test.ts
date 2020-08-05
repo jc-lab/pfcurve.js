@@ -4,7 +4,7 @@ const expect = chai.expect;
 
 import * as lib from '../../src';
 import { Fq, Fq2, PointG1, PointG2 } from '../../src';
-const CURVE = lib.findCurve('Fp381BLS12') as lib.ICurve;
+const CURVE = lib.findCurve('Fp381BLS12') as lib.Curve;
 
 const NUM_RUNS = Number(process.env.RUNS_COUNT || 10); // reduce to 1 to shorten test time
 

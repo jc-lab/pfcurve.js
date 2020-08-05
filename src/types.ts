@@ -24,9 +24,9 @@ export interface Field<T> {
 }
 
 export type FieldStatic<T extends Field<T>> = {
-  ZERO(curve: ICurve): T;
-  ONE(curve: ICurve): T;
-  fromConstant(curve: ICurve, c: bigint): T;
+  ZERO(curve: Curve): T;
+  ONE(curve: Curve): T;
+  fromConstant(curve: Curve, c: bigint): T;
 };
 
 export interface IECPoint<T extends Field<T>> {
@@ -79,6 +79,11 @@ export enum PairingFriendly {
   BLS = 1,
 }
 
+export interface INonResidues {
+  fp: bigint[];
+  fp2: bigint[];
+}
+
 export interface ICurve {
   name: string;
 
@@ -90,24 +95,29 @@ export interface ICurve {
   QNRI: number;
   EFS: number;
 
-  // a characteristic
-  P: bigint;
-  // an order
-  r: bigint;
-  // a cofactor
-  h: bigint;
-  Gx: bigint;
-  Gy: bigint;
+  nonresidues: INonResidues;
+
   A: bigint;
   B: bigint;
   B2: [bigint, bigint];
 
-  G2x: [bigint, bigint];
-  G2y: [bigint, bigint];
-
   // x (only positive)
   x: bigint;
 
-  Fra: bigint;
-  Frb: bigint;
+  // a characteristic
+  P: bigint;
+
+  // an order
+  r: bigint;
+
+  // a cofactor
+  h: bigint;
+
+  Gx: bigint;
+  Gy: bigint;
+
+  G2x: [bigint, bigint];
+  G2y: [bigint, bigint];
 }
+
+import Curve from './curve';

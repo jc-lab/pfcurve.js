@@ -7,17 +7,18 @@ import {
 import {
   genInvertBatch
 } from './intl';
+import Curve from './curve';
 import Fq from './fq';
 
-type Constructor<T extends Field<T>> = { new (curve: ICurve, ...args: any[]): T } & FieldStatic<T> & {
-  MAX_BITS(curve: ICurve): number;
+type Constructor<T extends Field<T>> = { new (curve: Curve, ...args: any[]): T } & FieldStatic<T> & {
+  MAX_BITS(curve: Curve): number;
 };
 
 export type PointConstructor<TF extends Field<TF>, TP extends ProjectivePoint<TF, TP>> = {
   readonly Field: FieldStatic<TF>;
-  BASE(curve: ICurve): TP;
-  CURVE_A(curve: ICurve): TF;
-  CURVE_B(curve: ICurve): TF;
+  BASE(curve: Curve): TP;
+  CURVE_A(curve: Curve): TF;
+  CURVE_B(curve: Curve): TF;
 };
 
 // x=X/Z, y=Y/Z
@@ -25,7 +26,7 @@ export abstract class ProjectivePoint<T extends Field<T>, TP extends ProjectiveP
   private _MPRECOMPUTES: undefined | [number, this[]];
 
   constructor(
-    public readonly curve: ICurve,
+    public readonly curve: Curve,
     public readonly x: T,
     public readonly y: T,
     public readonly z: T,

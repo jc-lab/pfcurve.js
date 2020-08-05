@@ -131,12 +131,14 @@ export function toBigInt(num: string | Uint8Array | bigint | number) {
   return num;
 }
 
-export function normalizePrivKey(curve: ICurve, privateKey: PrivateKey): Fq {
+export function normalizePrivKey(curve: Curve, privateKey: PrivateKey): Fq {
   return new Fq(curve, toBigInt(privateKey));
 }
 
 // P = pk x G
-export function getPublicKey<TBUF extends Uint8Array>(curve: ICurve, privateKey: PrivateKey, compress = true, bufferConstructor?: BufferConstructor<TBUF>): TBUF {
+export function getPublicKey<TBUF extends Uint8Array>(curve: Curve, privateKey: PrivateKey, compress = true, bufferConstructor?: BufferConstructor<TBUF>): TBUF {
   const _bufferConstructor: BufferConstructor<TBUF> = bufferConstructor || Buffer as any;
   return PointG1.fromPrivateKey(curve, privateKey).toBytes(compress, _bufferConstructor);
 }
+
+import Curve from './curve';

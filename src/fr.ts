@@ -4,11 +4,12 @@ import {
 import {
   mod, powMod, bitLen
 } from './utils';
+import Curve from './curve';
 
 export default class Fr implements Field<Fr> {
-  public readonly curve: ICurve;
+  public readonly curve: Curve;
 
-  static isValid(curve: ICurve, b: bigint): boolean {
+  static isValid(curve: Curve, b: bigint): boolean {
     return b <= curve.P;
   }
 
@@ -17,7 +18,7 @@ export default class Fr implements Field<Fr> {
   }
 
   readonly value: bigint;
-  constructor(curve: ICurve, value: bigint) {
+  constructor(curve: Curve, value: bigint) {
     this.curve = curve;
     this.value = mod(value, this.order);
   }
@@ -30,19 +31,19 @@ export default class Fr implements Field<Fr> {
     return bitLen(this.curve.r);
   }
 
-  public static MAX_BITS(curve: ICurve) {
+  public static MAX_BITS(curve: Curve) {
     return bitLen(curve.r);
   }
 
-  public static ZERO(curve: ICurve) {
+  public static ZERO(curve: Curve) {
     return new Fr(curve, 0n);
   }
 
-  public static ONE(curve: ICurve) {
+  public static ONE(curve: Curve) {
     return new Fr(curve, 1n);
   }
 
-  public static fromConstant(curve: ICurve, c: bigint) {
+  public static fromConstant(curve: Curve, c: bigint) {
     return new Fr(curve, c);
   }
 

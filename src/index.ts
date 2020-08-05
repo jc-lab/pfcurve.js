@@ -8,9 +8,11 @@ import Fq from './fq';
 import Fr from './fr';
 import Fq2 from './fq2';
 import Fq4 from './fq4';
+import Fq6 from './fq6';
 import Fq12 from './fq12';
 import PointG1 from './point-g1';
 import PointG2 from './point-g2';
+import Curve from './curve';
 
 import bls12381 from './curves/bls12381';
 import bn462 from './curves/bn462';
@@ -25,8 +27,8 @@ const curves: Record<string, ICurve> =
     }, {}
   );
 
-function findCurve(name: string): ICurve | undefined {
-  return curves[name.toUpperCase()];
+function findCurve(name: string): Curve | undefined {
+  return new Curve(curves[name.toUpperCase()]);
 }
 
 function getCurveNames(): string[] {
@@ -38,12 +40,14 @@ function getCurveNames(): string[] {
 }
 
 export {
+  Curve,
   PointG1,
   PointG2,
   Fq,
   Fr,
   Fq2,
   Fq4,
+  Fq6,
   Fq12,
   curves,
   findCurve,

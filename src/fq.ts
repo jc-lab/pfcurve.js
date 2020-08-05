@@ -4,41 +4,51 @@ import {
 import {
   mod, powMod, bitLen, sqrtMod
 } from './utils';
+import Curve from './curve';
 
+const S_CURVE = Symbol('curve');
 export default class Fq implements Field<Fq> {
-  public readonly curve: ICurve;
+  private readonly [S_CURVE]: Curve;
 
   readonly value: bigint;
-  constructor(curve: ICurve, value: bigint) {
-    this.curve = curve;
+  constructor(curve: Curve, value: bigint) {
+    this[S_CURVE] = curve;
     this.value = mod(value, this.order);
   }
 
+  public get curve() {
+    return this[S_CURVE];
+  }
+
   public get order(): bigint {
-    return this.curve.P;
+    return this[S_CURVE].P;
   }
 
   public get maxBits() {
     return bitLen(this.curve.P);
   }
 
-  public static ORDER(curve: ICurve) {
+  public static ORDER(curve: Curve) {
     return curve.P;
   }
 
-  public static MAX_BITS(curve: ICurve) {
+  public static Pmod4(curve: Curve) {
+    return Fq.ORDER(curve) % 4n;
+  }
+
+  public static MAX_BITS(curve: Curve) {
     return bitLen(curve.P);
   }
 
-  public static ZERO(curve: ICurve) {
+  public static ZERO(curve: Curve) {
     return new Fq(curve, 0n);
   }
 
-  public static ONE(curve: ICurve) {
+  public static ONE(curve: Curve) {
     return new Fq(curve, 1n);
   }
 
-  public static fromConstant(curve: ICurve, c: bigint) {
+  public static fromConstant(curve: Curve, c: bigint) {
     return new Fq(curve, c);
   }
 

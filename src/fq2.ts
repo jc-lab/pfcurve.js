@@ -7,40 +7,36 @@ import {
 import {
   FQP
 } from './intl';
+import Curve from './curve';
 import Fq from './fq';
 
+const S_CURVE = Symbol('curve');
 export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
-  static fromTuple(curve: ICurve, t: BigintTuple): Fq2 {
+  private readonly [S_CURVE]: Curve;
+
+  static fromTuple(curve: Curve, t: BigintTuple): Fq2 {
     return new Fq2(curve, [new Fq(curve, t[0]), new Fq(curve, t[1])]);
   }
 
-  public static ROOT(curve: ICurve) {
+  public static ROOT(curve: Curve) {
     return new Fq(curve, -1n);
   }
 
-  public static MAX_BITS(curve: ICurve) {
+  public static MAX_BITS(curve: Curve) {
     return bitLen(curve.P) * 2;
   }
 
-  public static ZERO(curve: ICurve) {
+  public static ZERO(curve: Curve) {
     return new Fq2(curve, [0n, 0n]);
   }
 
-  public static ONE(curve: ICurve) {
+  public static ONE(curve: Curve) {
     return new Fq2(curve, [1n, 0n]);
   }
 
-  public static fromConstant(curve: ICurve, c: bigint) {
+  public static fromConstant(curve: Curve, c: bigint) {
     return Fq2.fromTuple(curve, [c, 0n]);
   }
-
-  // public static ORDER(curve: ICurve): bigint {
-  //   return curve.P;
-  // }
-  //
-  // public get order(): bigint {
-  //   return this.curve.P2;
-  // }
 
   public readonly c: [Fq, Fq];
 
@@ -48,14 +44,20 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
     return [this.c[0].value, this.c[1].value];
   }
 
-  constructor(public readonly curve: ICurve, coeffs: [Fq, Fq] | [bigint, bigint] | bigint[]) {
+  constructor(curve: Curve, coeffs: [Fq, Fq] | [bigint, bigint] | bigint[]) {
     super();
     if (coeffs.length !== 2) throw new Error('Expected array with 2 elements');
     coeffs.forEach((c: any, i: any) => {
       if (typeof c === 'bigint') coeffs[i] = new Fq(curve, c);
     });
     this.c = coeffs as [Fq, Fq];
+    this[S_CURVE] = curve;
   }
+
+  public get curve() {
+    return this[S_CURVE];
+  }
+
   init(tuple: [Fq, Fq]) {
     return new Fq2(this.curve, tuple);
   }
@@ -87,11 +89,9 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
     return new Fq2(this.curve, [t1.subtract(t2), c0.add(c1).multiply(r0.add(r1)).subtract(t1.add(t2))]);
   }
 
-  // multiply by u + 1
+  // = mul by xi
   mulByNonresidue() {
-    const c0 = this.c[0];
-    const c1 = this.c[1];
-    return new Fq2(this.curve, [c0.subtract(c1), c0.add(c1)]);
+    return this.multiply(Fq2.fromTuple(this.curve, this.curve.nonresidues.fp2 as BigintTuple));
   }
 
   square() {
@@ -100,7 +100,7 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
     const a = c0.add(c1);
     const b = c0.subtract(c1);
     const c = c0.add(c0);
-    return new Fq2(this.curve, [a.multiply(b), c.multiply(c1)]);
+    return new Fq2(this.curve, [a.multiply(b), c.multiply(c1)]); //(2(a+b)) * b => 2ab+2bb = 2(ab+bb)
   }
 
   public times_i(): Fq2 {
@@ -139,9 +139,29 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
   }
 
   // Raises to q**i -th power
-  // frobeniusMap(power: number): Fq2 {
-  //   return new Fq2(this.curve, [this.c[0], this.c[1].multiply(Fq2.FROBENIUS_COEFFICIENTS[power % 2])]);
-  // }
+  frobeniusMap(power: number): Fq2 {
+    return new Fq2(this.curve, [this.c[0], this.c[1].multiply(this.curve.frobeniusCoeffses.fq2[power % 2])]);
+  }
+
+  /**
+   *
+   Frobenius
+   i^2 = -1
+   (a + bi)^p = a + bi^p in Fp
+   = a + bi if p = 1 mod 4
+   = a - bi if p = 3 mod 4
+   */
+  frobenius(): Fq2 {
+    const pmod4 = Fq.Pmod4(this.curve);
+    let y: Fq2;
+    if (pmod4 === 1n) {
+      y = this;
+    } else {
+      y = new Fq2(this.curve, [this.c[0], this.c[1].negate()]);
+    }
+    return y;
+  }
+
   multiplyByB() {
     const [c0, c1] = this.c;
     const t0 = c0.multiply(4n); // 4 * c0
@@ -196,4 +216,20 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
       .multiply(this);
     return w.c[0].qr();
   }
+
+  // public mulxi(): Fq2 {
+  //   const x = this;
+  //   const xi_a = this.curve.nonresidues.fp2[0];
+  //   if (xi_a === 1n) {
+  //     const t = x.c[0].add(x.c[1]);
+  //     const ya = x.c[0].subtract(x.c[1]);
+  //     return new Fq2(this.curve, [ya, t]);
+  //   } else {
+  //     let t = x.c[0].multiply(xi_a);
+  //     t = t.subtract(x.c[1]);
+  //     let yb = x.c[1].multiply(xi_a);
+  //     yb = yb.add(x.c[0]);
+  //     return new Fq2(this.curve, [t, yb]);
+  //   }
+  // }
 }

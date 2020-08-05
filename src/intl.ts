@@ -1,16 +1,68 @@
 import {
-  ICurve, Field, FieldStatic, PrivateKey
+  Field, FieldStatic, PrivateKey
 } from './types';
 import {
   toBigInt
 } from './utils';
+
+function xgcd(a: bigint, b: bigint): [bigint, bigint, bigint] {
+  // Computes XGCD(a, b).
+  // Returns (m, x, y) s.t. m = a*x + b*y
+  let prev_x: bigint = 1n;
+  let x: bigint = 0n;
+  let prev_y: bigint = 0n;
+  let y: bigint = 1n;
+  while (b) {
+    let q: bigint;
+    [q, a, b] = [a/b, b, a % b];
+    const [tx, ty] = [x, y];
+    [x, y] = [prev_x - q * x, prev_y - q * y];
+    [prev_x, prev_y] = [tx, ty];
+  }
+  return [a, prev_x, prev_y];
+}
+
+function frobeniusCoeffsPowers(modulus: bigint, degree: number, _num?: number | undefined, _divisor?: number | undefined): bigint[][] {
+  const divisor = _divisor || degree;
+  const num = _num || 1;
+  const tower_modulus = modulus ** BigInt(degree);
+  const out: bigint[][] = [];
+  for (let i=0; i<num; i++) {
+    const a = BigInt(i) + 1n;
+    let q_power = 1n;
+    const powers: bigint[] = [];
+    for (let j=0; j < degree; j++) {
+      powers.push(
+        ((((a*q_power)-a) / BigInt(divisor)) % tower_modulus)
+      );
+      q_power *= modulus;
+    }
+    out.push(powers);
+  }
+  return out;
+}
+
+export function frobeniusCoeffs<T>(nonResidue: Field<T>, args: bigint, kwa: number, num?: number, divisor?: number): T[][]
+{
+  const coeffs: T[][] = [];
+  frobeniusCoeffsPowers(args, kwa, num, divisor)
+    .forEach((powers, i) => {
+      coeffs.push(
+        powers.reduce((list, cur) => {
+          list.push(nonResidue.pow(cur));
+          return list;
+        }, [] as T[])
+      );
+    });
+  return coeffs;
+}
 
 // Abstract class for a field over polynominal.
 // TT - ThisType, CT - ChildType, TTT - Tuple Type
 export abstract class FQP<TT extends { c: TTT } & Field<TT>, CT extends Field<CT>, TTT extends CT[]>
 implements Field<TT> {
   public abstract readonly c: CT[];
-  abstract get curve(): ICurve;
+  abstract get curve(): Curve;
 
   abstract init(c: TTT): TT;
   abstract multiply(rhs: TT | bigint): TT;
@@ -59,6 +111,7 @@ implements Field<TT> {
     let one: unknown;
     if (el instanceof Fq2) one = Fq2.ONE(this.curve);
     if (el instanceof Fq4) one = Fq4.ONE(this.curve);
+    if (el instanceof Fq6) one = Fq6.ONE(this.curve);
     if (el instanceof Fq12) one = Fq12.ONE(this.curve);
     return one as TT;
   }
@@ -82,7 +135,7 @@ implements Field<TT> {
   }
 }
 
-export function genInvertBatch<T extends Field<T>>(curve: ICurve, cls: FieldStatic<T>, nums: T[]): T[] {
+export function genInvertBatch<T extends Field<T>>(curve: Curve, cls: FieldStatic<T>, nums: T[]): T[] {
   const len = nums.length;
   const scratch = new Array(len);
   let acc = cls.ONE(curve);
@@ -104,9 +157,11 @@ export function genInvertBatch<T extends Field<T>>(curve: ICurve, cls: FieldStat
 import Fq from './fq';
 import Fq2 from './fq2';
 import Fq4 from './fq4';
+import Fq6 from './fq6';
 import Fq12 from './fq12';
+import Curve from './curve';
 
-export function normalizePrivKey(curve: ICurve, privateKey: PrivateKey): Fq {
+export function normalizePrivKey(curve: Curve, privateKey: PrivateKey): Fq {
   return new Fq(curve, toBigInt(privateKey));
 }
 

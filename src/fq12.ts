@@ -1,31 +1,172 @@
-import {
-  BigintFour, BigintSix, BigintTwelve, FieldStatic, ICurve, PairingFriendly, SexticTwist, SignOfX
-} from './types';
-import {
-  FQP
-} from './intl';
+import {BigintSix, BigintTwelve, FieldStatic, PairingFriendly, SignOfX} from './types';
+import {FQP} from './intl';
+import Curve from './curve';
 import Fq from './fq';
 import Fq2 from './fq2';
-import Fq4 from './fq4';
+import Fq6 from './fq6';
+import {
+  bitLen, bitGet
+} from './utils';
 
-export default class Fq12 extends FQP<Fq12, Fq4, [Fq4, Fq4, Fq4]> {
-  public static ZERO(curve: ICurve) {
-    return new Fq12(curve, [Fq4.ZERO(curve), Fq4.ZERO(curve), Fq4.ZERO(curve)]);
+function fq4Square(x0: Fq2, x1: Fq2): [Fq2, Fq2] {
+  const a2 = x0.square(),
+    b2 = x1.square();
+  return [
+    b2.mulByNonresidue().add(a2), // b^2 * Nonresidue + a^2
+    x0.add(x1).square().subtract(a2).subtract(b2), // (a + b)^2 - a^2 - b^2
+  ];
+}
+
+function mapToCyclotomic(x: Fq12): Fq12
+{
+  let z = x.frobenius2(); // z = x^(p^2)
+  z = z.multiply(x); // x^(p^2 + 1)
+  let y = z.invert();
+  z = new Fq12(x.curve, [
+    z.c[0], z.c[1].negate()
+  ]); // z^(p^6) = conjugate of z
+  y = y.multiply(z);
+  return y;
+}
+
+/*
+		Exponentiation over compression for:
+		z = x^Param::z.abs()
+	*/
+function fixed_power(x: Fq12) {
+  return x.pow(x.curve.x);
+}
+
+function pow_z(x: Fq12)
+{
+  const curve = x.curve;
+  let y: Fq12;
+
+  y = x.cyclotomicExp(curve.x);
+
+  // if (curve.pairingFriendly === PairingFriendly.BN) {
+  //   y = fixed_power(x);
+  // } else {
+  //   const orgX: Fq12 = x;
+  //   y = x;
+  //   const conj: Fq12 = new Fq12(curve, [x.c[0], x.c[1].negate()]);
+  //   for (let i = 1; i < curve.zReplTbl.length; i++) {
+  //     y = y.fasterSquare(); // fasterSqr(y);
+  //     if (curve.zReplTbl[i] > 0) {
+  //       y = y.multiply(orgX);
+  //     } else if (curve.zReplTbl[i] < 0) {
+  //       y = y.multiply(conj);
+  //     }
+  //   }
+  // }
+  if (curve.signOfX === SignOfX.NEGATIVEX) {
+    y = y.unitaryInv();
+  }
+  return y;
+}
+
+/*
+	Implementing Pairings at the 192-bit Security Level
+	D.F.Aranha, L.F.Castaneda, E.Knapp, A.Menezes, F.R.Henriquez
+	Section 4
+*/
+function expHardPartBLS12(x: Fq12)
+{
+  let a1: Fq12, a3: Fq12, a4: Fq12, a7: Fq12;
+  let y: Fq12;
+  const a0 = x.unitaryInv(); // a0 = x^-1
+  a1 = a0.cyclotomicSquare(); // fasterSqr(a0); // x^-2
+  const a2 = pow_z(x); // x^z
+  a3 = a2.cyclotomicSquare(); // fasterSqr(a2); // x^2z
+  a1 = a1.multiply(a2); // a1 = x^(z-2)
+  a7 = pow_z(a1); // a7 = x^(z^2-2z)
+  a4 = pow_z(a7); // a4 = x^(z^3-2z^2)
+  const a5 = pow_z(a4); // a5 = x^(z^4-2z^3)
+  a3 = a3.multiply(a5); // a3 = x^(z^4-2z^3+2z)
+  const a6 = pow_z(a3); // a6 = x^(z^5-2z^4+2z^2)
+
+  a1 = a1.unitaryInv(); // x^(2-z)
+  a1 = a1.multiply(a6); // x^(z^5-2z^4+2z^2-z+2)
+  a1 = a1.multiply(x); // x^(z^5-2z^4+2z^2-z+3) = x^c0
+  a3 = a3.multiply(a0); // x^(z^4-2z^3-1) = x^c1
+  a3 = a3.frobenius(); // x^(c1 p)
+  a1 = a1.multiply(a3); // x^(c0 + c1 p)
+  a4 = a4.multiply(a2); // x^(z^3-2z^2+z) = x^c2
+  a4 = a4.frobenius2();  // x^(c2 p^2)
+  a1 = a1.multiply(a4); // x^(c0 + c1 p + c2 p^2)
+  a7 = a7.multiply(x); // x^(z^2-2z+1) = x^c3
+  y = a7.frobenius3();
+  y = y.multiply(a1);
+  return y;
+}
+/*
+	Faster Hashing to G2
+	Laura Fuentes-Castaneda, Edward Knapp, Francisco Rodriguez-Henriquez
+	section 4.1
+	y = x^(d 2z(6z^2 + 3z + 1)) where
+	p = p(z) = 36z^4 + 36z^3 + 24z^2 + 6z + 1
+	r = r(z) = 36z^4 + 36z^3 + 18z^2 + 6z + 1
+	d = (p^4 - p^2 + 1) / r
+	d1 = d 2z(6z^2 + 3z + 1)
+	= c0 + c1 p + c2 p^2 + c3 p^3
+	c0 = 1 + 6z + 12z^2 + 12z^3
+	c1 = 4z + 6z^2 + 12z^3
+	c2 = 6z + 6z^2 + 12z^3
+	c3 = -1 + 4z + 6z^2 + 12z^3
+	x -> x^z -> x^2z -> x^4z -> x^6z -> x^(6z^2) -> x^(12z^2) -> x^(12z^3)
+	a = x^(6z) x^(6z^2) x^(12z^3)
+	b = a / (x^2z)
+	x^d1 = (a x^(6z^2) x) b^p a^(p^2) (b / x)^(p^3)
+*/
+function expHardPartBN(x: Fq12)
+{
+  let a: Fq12, b: Fq12;
+  let a2: Fq12, a3: Fq12;
+  let y: Fq12;
+  b = pow_z(x); // x^zf
+  b = b.cyclotomicSquare(); // fasterSqr(b); // x^2z
+  a = b.cyclotomicSquare(); // fasterSqr(b); // x^4z
+  a = a.multiply(b); // x^6z
+  a2 = pow_z(a); // x^(6z^2)
+  a = a.multiply(a2);
+  a3 = a2.cyclotomicSquare(); // fasterSqr(a2); // x^(12z^2)
+  a3 = pow_z(a3); // x^(12z^3)
+  a = a.multiply(a3);
+  b = b.unitaryInv();
+  b = b.multiply(a);
+  a2 = a2.multiply(a);
+  a = a.frobenius2();
+  a = a.multiply(a2);
+  a = a.multiply(x);
+  y = x.unitaryInv();
+  y = y.multiply(b);
+  b = b.frobenius();
+  a = a.multiply(b);
+  y = y.frobenius3();
+  y = y.multiply(a);
+  return y;
+}
+
+const S_CURVE = Symbol('curve');
+export default class Fq12 extends FQP<Fq12, Fq6, [Fq6, Fq6]> {
+  private readonly [S_CURVE]: Curve;
+
+  public static ZERO(curve: Curve) {
+    return new Fq12(curve, [Fq6.ZERO(curve), Fq6.ZERO(curve)]);
   }
 
-  public static ONE(curve: ICurve) {
-    return new Fq12(curve, [Fq4.ONE(curve), Fq4.ZERO(curve), Fq4.ZERO(curve)]);
+  public static ONE(curve: Curve) {
+    return new Fq12(curve, [Fq6.ONE(curve), Fq6.ZERO(curve)]);
   }
 
-  public static fromConstant(curve: ICurve, c: bigint) {
+  public static fromConstant(curve: Curve, c: bigint) {
     return Fq2.fromTuple(curve, [c, 0n]);
   }
 
-  static fromTuple(curve: ICurve, t: BigintTwelve): Fq12 {
+  static fromTuple(curve: Curve, t: BigintTwelve): Fq12 {
     return new Fq12(curve, [
-      Fq4.fromTuple(curve, t.slice(0, 4) as BigintFour),
-      Fq4.fromTuple(curve, t.slice(4, 8) as BigintFour),
-      Fq4.fromTuple(curve, t.slice(8, 12) as BigintFour),
+      Fq6.fromTuple(curve, t.slice(0, 6) as BigintSix),
+      Fq6.fromTuple(curve, t.slice(6, 12) as BigintSix)
     ]);
   }
 
@@ -40,355 +181,294 @@ export default class Fq12 extends FQP<Fq12, Fq4, [Fq4, Fq4, Fq4]> {
     // return [...this.c.map(v => v.toTuple())] as any;
   }
 
-  constructor(public readonly curve: ICurve, public readonly c: [Fq4, Fq4, Fq4]) {
+  constructor(curve: Curve, public readonly c: [Fq6, Fq6]) {
     super();
-    if (c.length !== 3) throw new Error('Expected array with 3 elements');
+    if (c.length !== 2) throw new Error('Expected array with 2 elements');
+    this[S_CURVE] = curve;
   }
-  init(c: [Fq4, Fq4, Fq4]) {
+
+  public get curve() {
+    return this[S_CURVE];
+  }
+
+  init(c: [Fq6, Fq6]) {
     return new Fq12(this.curve, c);
   }
+
   toString() {
-    return `Fq12(${this.c[0]} + ${this.c[1]} * w + ${this.c[2]} * w^2)`;
+    return `Fq12(${this.c[0]} + ${this.c[1]} * w)`;
   }
 
   multiply(rhs: Fq12 | bigint) {
     if (typeof rhs === 'bigint')
-      return new Fq12(this.curve, [this.c[0].multiply(rhs), this.c[1].multiply(rhs), this.c[2].multiply(rhs)]);
-    let [c0, c1, c2] = this.c;
-    const [r0, r1, r2] = rhs.c;
-    const zero_c = r2.isZero();
-    const zero_b = r1.isZero();
-    let Z1: Fq4, Z2: Fq4, Z3: Fq4;
-    let T0: Fq4, T1: Fq4;
-
-    const Z0 = c0.multiply(r0);
-    if (!zero_b) {
-      Z2 = c1.multiply(r1);
-    }
-    T0 = c0.add(c1);
-    T1 = r0.add(r1);
-    Z1 = T0.multiply(T1);
-    Z1 = Z1.subtract(Z0);
-    if (!zero_b) {
-      // @ts-ignore
-      Z1 = Z1.subtract(Z2);
-    }
-    T0 = c1.add(c2);
-    T1 = r1.add(r2);
-    Z3 = T0.multiply(T1);
-    if (!zero_b) {
-      // @ts-ignore
-      Z3 = Z3.subtract(Z2);
-    }
-    T0 = c0.add(c2);
-    T1 = r0.add(r2);
-    T0 = T0.multiply(T1);
-    if (!zero_b) {
-      // @ts-ignore
-      Z2 = Z2.add(T0);
-    } else {
-      Z2 = T0;
-    }
-    Z2 = Z2.subtract(Z0);
-    c1 = Z1;
-    if (!zero_c) {
-      T0 = c2.multiply(r2);
-      Z2 = Z2.subtract(T0);
-      Z3 = Z3.subtract(T0);
-      c1 = c1.add(T0.mulQNR());
-    }
-    c0 = Z0.add(Z3.mulQNR());
-    c2 = Z2;
+      return new Fq12(this.curve, [this.c[0].multiply(rhs), this.c[1].multiply(rhs)]);
+    const [c0, c1] = this.c;
+    const [r0, r1] = rhs.c;
+    const t1 = c0.multiply(r0); // c0 * r0
+    const t2 = c1.multiply(r1); // c1 * r1
     return new Fq12(this.curve, [
-      c0, c1, c2
+      t1.add(t2.mulByNonresidue()), // T1 + T2 * v
+      // (c0 + c1) * (r0 + r1) - (T1 + T2)
+      c0.add(c1).multiply(r0.add(r1)).subtract(t1.add(t2)),
     ]);
-  }
-
-  square() {
-    let [c0, c1, c2] = this.c;
-    const a = c0.square();
-    let b = c1.multiply(c2);
-    b = b.add(b);
-    const c = c2.square();
-    let d = c0.multiply(c1);
-    d = d.add(d);
-    c2 = c2.add(c0.add(c1));
-    c2 = c2.square();
-    c0 = a.add(b.mulQNR());
-    c1 = d.add(c.mulQNR());
-    c2 = c2.subtract(a.add(b).add(c).add(d));
-    return new Fq12(this.curve, [
-      c0, c1, c2
-    ]);
-  }
-
-
-  // # unitary squaring
-  usqr() {
-    let [a, b, c] = this.c;
-    let t0: Fq4, t1: Fq4, t2: Fq4, t3: Fq4;
-    t0 = a;
-    a = a.square();
-    t3 = a;
-    a = a.add(a);
-    a = a.add(t3);
-    t0 = t0.conjugate();
-    t0 = t0.add(t0);
-    a = a.subtract(t0);
-    t1 = c;
-    t1 = t1.square();
-    t1 = t1.mulQNR();
-    t3 = t1;
-    t1 = t1.add(t1);
-    t1 = t1.add(t3);
-    t2 = b;
-    t2 = t2.square();
-    t3 = t2;
-    t2 = t2.add(t2);
-    t2 = t2.add(t3);
-
-    b = b.conjugate();
-    b = b.add(b);
-    c = c.conjugate();
-    c = c.add(c);
-    c = c.negate();
-    b = b.add(t1);
-    c = c.add(t2);
-
-    return new Fq12(this.curve, [a,b,c]);
-  }
-
-  invert() {
-    const [c0, c1, c2] = this.c;
-
-    const wa = c0.multiply(c0).subtract(c1.multiply(c2).mulQNR());
-    const wb = (c2.multiply(c2)).mulQNR().subtract(c0.multiply(c1));
-    const wc = c1.multiply(c1).subtract(c0.multiply(c2));
-    let f = (
-      (c1.multiply(wc)).mulQNR()
-        .add(c0.multiply(wa))
-        .add(c2.multiply(wb).mulQNR()));
-    f = f.invert();
-    return new Fq12(this.curve, [
-      wa.multiply(f), wb.multiply(f), wc.multiply(f)
-    ]);
-  }
-
-  conjugate() {
-    return this.init([
-      this.c[0].conjugate(),
-      this.c[1].conjugate().negate(),
-      this.c[2].conjugate()
-    ]);
+    //
+    // const [a, b] = this.c;
+    // const [c, d] = rhs.c;
+    //
+    // const t1 = a.add(b);
+    // const t2 = c.add(d);
+    // const AC = a.multiply(c);
+    // const BD = b.multiply(d);
+    // let T: Fq6 = (() => {
+    //   const t = BD.c[2].mulByNonresidue();
+    //   const zc = BD.c[1].add(AC.c[2]);
+    //   const zb = BD.c[0].add(AC.c[1]);
+    //   const za = t.add(AC.c[0]);
+    //   return new Fq6(this.curve, [za, zb, zc]);
+    // })();
+    // const za = T;
+    // T = t1.multiply(t2); // (a + b)(c + d)
+    // T = T.subtract(AC);
+    // T = T.subtract(BD);
+    // const zb = T;
+    // return new Fq12(this.curve, [za, zb]);
   }
 
   // multiply line functions
-  smul(other: Fq12) {
-    const [c00, c01] = this.c[0].c;
-    const [c10, c11] = this.c[1].c;
-    const [c20, c21] = this.c[2].c;
-    const [r00, r01] = other.c[0].c;
-    const [r10, r11] = other.c[1].c;
-    const [r20, r21] = other.c[2].c;
+  // smul(other: Fq12) {
+  //   const [c00, c01] = this.c[0].c;
+  //   const [c10, c11] = this.c[1].c;
+  //   const [c20, c21] = this.c[2].c;
+  //   const [r00, r01] = other.c[0].c;
+  //   const [r10, r11] = other.c[1].c;
+  //   const [r20, r21] = other.c[2].c;
+  //
+  //   let ca: Fq4, cb: Fq4, cc: Fq4;
+  //
+  //   let w1: Fq2, w2: Fq2, w3: Fq2;
+  //   let ta: Fq2, tb: Fq2, tc: Fq2, td: Fq2, te: Fq2;
+  //
+  //   if (this.curve.sexticTwist == SexticTwist.D_TYPE) {
+  //     w1 = c00.multiply(r00);
+  //     w2 = c01.multiply(r01);
+  //     w3 = c10.multiply(r10);
+  //
+  //     ta = c00.add(c01);
+  //     tb = r00.add(r01);
+  //     tc = ta.multiply(tb);
+  //     tc = tc.subtract(w1.add(w2));
+  //
+  //     ta = c00.add(c10);
+  //     tb = r00.add(r10);
+  //     td = ta.multiply(tb);
+  //     td = td.subtract(w1.add(w3));
+  //
+  //     ta = c01.add(c10);
+  //     tb = r01.add(r10);
+  //     te = ta.multiply(tb);
+  //     te = te.subtract(w2.add(w3));
+  //
+  //     w1 = w1.add(w2.mulQNR());
+  //     ca = new Fq4(this.curve, [w1, tc]);
+  //     cb = new Fq4(this.curve, [td, te]);
+  //     cc = new Fq4(this.curve, [w3, Fq2.ZERO(this.curve)]);
+  //   } else {
+  //     w1 = c00.multiply(r00);
+  //     w2 = c01.multiply(r01);
+  //     w3 = c21.multiply(r21);
+  //
+  //     ta = c00.add(c01);
+  //     tb = r00.add(r01);
+  //     tc = ta.multiply(tb);
+  //     tc = tc.subtract(w1.add(w2));
+  //
+  //     ta = c00.add(c21);
+  //     tb = r00.add(r21);
+  //     td = ta.multiply(tb);
+  //     td = td.subtract(w1.add(w3));
+  //
+  //     ta = c01.add(c21);
+  //     tb = r01.add(r21);
+  //     te = ta.multiply(tb);
+  //     te = te.subtract(w2.add(w3));
+  //
+  //     w1 = w1.add(w2.mulQNR());
+  //     ca = new Fq4(this.curve, [w1, tc]);
+  //     cb = new Fq4(this.curve, [w3.mulQNR(), Fq2.ZERO(this.curve)]);
+  //     cb = cb.times_i();
+  //     cc = new Fq4(this.curve, [te.mulQNR(), td]);
+  //   }
+  //   return new Fq12(this.curve, [ca, cb, cc]);
+  // }
 
-    let ca: Fq4, cb: Fq4, cc: Fq4;
+  smul(low: Fq2, mid: Fq2, high: Fq2) {
+    const r = {
+      low: this.c[0],
+      high: this.c[1]
+    };
 
-    let w1: Fq2, w2: Fq2, w3: Fq2;
-    let ta: Fq2, tb: Fq2, tc: Fq2, td: Fq2, te: Fq2;
+    // See function Fq12e_mul_line in dclxvi
 
-    if (this.curve.sexticTwist == SexticTwist.D_TYPE) {
-      w1 = c00.multiply(r00);
-      w2 = c01.multiply(r01);
-      w3 = c10.multiply(r10);
+    let t1 = new Fq6(this.curve, [mid, high, Fq2.ZERO(this.curve)]);
+    const t2 = new Fq6(this.curve, [mid.add(low), high, Fq2.ZERO(this.curve)]);
 
-      ta = c00.add(c01);
-      tb = r00.add(r01);
-      tc = ta.multiply(tb);
-      tc = tc.subtract(w1.add(w2));
+    t1 = t1.multiply(r.high);
+    const t3 = r.low.multiplyByFq2(low);
+    r.high = r.high.add(r.low);
+    r.low = t3;
+    r.high = r.low.multiply(t2);
+    r.high = r.low.subtract(t1);
+    r.high = r.low.subtract(r.low);
+    r.low = r.low.add(t1.mul_tau());
+    return new Fq12(this.curve, [r.low, r.high]);
+  }
 
-      ta = c00.add(c10);
-      tb = r00.add(r10);
-      td = ta.multiply(tb);
-      td = td.subtract(w1.add(w3));
+  // Sparse multiplication
+  multiplyBy014(o0: Fq2, o1: Fq2, o4: Fq2) {
+    const [c0, c1] = this.c;
+    const [t0, t1] = [c0.multiplyBy01(o0, o1), c1.multiplyBy1(o4)];
+    return new Fq12(this.curve, [
+      t1.mulByNonresidue().add(t0), // T1 * v + T0
+      // (c1 + c0) * [o0, o1+o4] - T0 - T1
+      c1.add(c0).multiplyBy01(o0, o1.add(o4)).subtract(t0).subtract(t1),
+    ]);
+  }
 
-      ta = c01.add(c10);
-      tb = r01.add(r10);
-      te = ta.multiply(tb);
-      te = te.subtract(w2.add(w3));
+  multiplyByFq2(rhs: Fq2): Fq12 {
+    return this.init(this.map((c) => c.multiplyByFq2(rhs)));
+  }
 
-      w1 = w1.add(w2.mulQNR());
-      ca = new Fq4(this.curve, [w1, tc]);
-      cb = new Fq4(this.curve, [td, te]);
-      cc = new Fq4(this.curve, [w3, Fq2.ZERO(this.curve)]);
+  square() {
+    const [c0, c1] = this.c;
+    const ab = c0.multiply(c1); // c0 * c1
+    return new Fq12(this.curve, [
+      // (c1 * v + c0) * (c0 + c1) - AB - AB * v
+      c1.mulByNonresidue().add(c0).multiply(c0.add(c1)).subtract(ab).subtract(ab.mulByNonresidue()),
+      ab.add(ab),
+    ]); // AB + AB
+  }
+
+  invert() {
+    const [c0, c1] = this.c;
+    const t = c0.square().subtract(c1.square().mulByNonresidue()).invert(); // 1 / (c0^2 - c1^2 * v)
+    return new Fq12(this.curve, [c0.multiply(t), c1.multiply(t).negate()]); // ((C0 * T) * T) + (-C1 * T) * w
+  }
+
+  unitaryInv() {
+    return new Fq12(this.curve, [this.c[0], this.c[1].negate()]);
+  }
+
+  // Raises to q**i -th power
+  frobeniusMap(power: number) {
+    const [c0, c1] = this.c;
+    const r0 = c0.frobeniusMap(power);
+    const [c1_0, c1_1, c1_2] = c1.frobeniusMap(power).c;
+    return new Fq12(this.curve, [
+      r0,
+      new Fq6(this.curve, [
+        c1_0.multiply(this.curve.frobeniusCoeffses.fq12[power % 12]),
+        c1_1.multiply(this.curve.frobeniusCoeffses.fq12[power % 12]),
+        c1_2.multiply(this.curve.frobeniusCoeffses.fq12[power % 12]),
+      ]),
+    ]);
+  }
+
+  // https://eprint.iacr.org/2009/565.pdf
+  public cyclotomicSquare(): Fq12 {
+    const [c0, c1] = this.c;
+    const [c0c0, c0c1, c0c2] = c0.c;
+    const [c1c0, c1c1, c1c2] = c1.c;
+    const [t3, t4] = fq4Square(c0c0, c1c1);
+    const [t5, t6] = fq4Square(c1c0, c0c2);
+    const [t7, t8] = fq4Square(c0c1, c1c2);
+    const t9 = t8.mulByNonresidue(); // T8 * (u + 1)
+    return new Fq12(this.curve, [
+      new Fq6(this.curve, [
+        t3.subtract(c0c0).multiply(2n).add(t3), // 2 * (T3 - c0c0)  + T3
+        t5.subtract(c0c1).multiply(2n).add(t5), // 2 * (T5 - c0c1)  + T5
+        t7.subtract(c0c2).multiply(2n).add(t7),
+      ]), // 2 * (T7 - c0c2)  + T7
+      new Fq6(this.curve, [
+        t9.add(c1c0).multiply(2n).add(t9), // 2 * (T9 + c1c0) + T9
+        t4.add(c1c1).multiply(2n).add(t4), // 2 * (T4 + c1c1) + T4
+        t6.add(c1c2).multiply(2n).add(t6),
+      ]),
+    ]); // 2 * (T6 + c1c2) + T6
+  }
+
+  public cyclotomicExp(n: bigint) {
+    // return this.pow(n);
+    let z = Fq12.ONE(this.curve);
+    const X_LEN = bitLen(this.curve.x);
+    for (let i = X_LEN - 1; i >= 0; i--) {
+      z = z.cyclotomicSquare();
+      if (bitGet(n, i)) z = z.multiply(this);
+    }
+    return z;
+  }
+
+  finalExponentiate(): Fq12 {
+    const y = mapToCyclotomic(this);
+    if (this.curve.pairingFriendly === PairingFriendly.BLS) {
+      return expHardPartBLS12(y);
     } else {
-      w1 = c00.multiply(r00);
-      w2 = c01.multiply(r01);
-      w3 = c21.multiply(r21);
-
-      ta = c00.add(c01);
-      tb = r00.add(r01);
-      tc = ta.multiply(tb);
-      tc = tc.subtract(w1.add(w2));
-
-      ta = c00.add(c21);
-      tb = r00.add(r21);
-      td = ta.multiply(tb);
-      td = td.subtract(w1.add(w3));
-
-      ta = c01.add(c21);
-      tb = r01.add(r21);
-      te = ta.multiply(tb);
-      te = te.subtract(w2.add(w3));
-
-      w1 = w1.add(w2.mulQNR());
-      ca = new Fq4(this.curve, [w1, tc]);
-      cb = new Fq4(this.curve, [w3.mulQNR(), Fq2.ZERO(this.curve)]);
-      cb = cb.times_i();
-      cc = new Fq4(this.curve, [te.mulQNR(), td]);
+      return expHardPartBN(y);
     }
-    return new Fq12(this.curve, [ca, cb, cc]);
   }
 
-  powq() {
-    let [a,b,c] = this.c;
-    const X = new Fq2(this.curve, [new Fq(this.curve, this.curve.Fra), new Fq(this.curve, this.curve.Frb)]);
-    const X2 = X.square();
-    a = a.powq();
-    b = b.powq().multiplyByFq2(X);
-    c = c.powq().multiplyByFq2(X2);
-    return new Fq12(this.curve, [a, b, c]);
+  frobenius() {
+    const x: Fq2[] = [
+      ...this.c[0].c,
+      ...this.c[1].c
+    ];
+    const y: Fq2[] = x.map(t => t.frobenius());
+    for (let i=1; i<6; i++) {
+      y[i] = y[i].multiply(this.curve.gTbl[i - 1]);
+    }
+    return new Fq12(this.curve, [
+      new Fq6(this.curve, y.slice(0, 3) as [Fq2, Fq2, Fq2]),
+      new Fq6(this.curve, y.slice(3, 6) as [Fq2, Fq2, Fq2])
+    ]);
   }
 
-  finalExponentiate() {
-    let t0: Fq12, r: Fq12, x: bigint, x0: Fq12, x1: Fq12, x2: Fq12, x3: Fq12, x4: Fq12, x5: Fq12, y0: Fq12, y1: Fq12, y2: Fq12, y3: Fq12;
-    let res: Fq12;
-
-    r = this;
-
-    // final exp - easy part
-    t0 = r;
-    r = r.conjugate();
-
-    r = r.multiply(t0.invert());
-
-    t0 = r;
-    r = r.powq();
-    r = r.powq();
-    r = r.multiply(t0);
-
-    // final exp - hard part
-    x = this.curve.x;
-
-    if (this.curve.pairingFriendly == PairingFriendly.BN) {
-      res = r;
-
-      t0 = res;
-      t0 = t0.powq();
-      x0 = t0;
-      x0 = x0.powq();
-
-      x0 = x0.multiply(res.multiply(t0));
-      x0 = x0.powq();
-
-      x1 = res;
-      x1 = x1.conjugate();
-      x4 = res.pow(x);
-      if (this.curve.signOfX == SignOfX.POSITIVEX) {
-        x4 = x4.conjugate();
+  frobenius2() {
+    const pmod4 = Fq.Pmod4(this.curve);
+    const x: Fq2[] = [
+      ...this.c[0].c,
+      ...this.c[1].c
+    ];
+    const y: Fq2[] = new Array<Fq2>();
+    y[0] = x[0];
+    if (pmod4 === 1n) {
+      for (let i = 1; i < 6; i++) {
+        y[i] = x[i].multiply(this.curve.g2Tbl[i]);
       }
-      x3 = x4;
-      x3 = x3.powq();
-
-      x2 = x4.pow(x);
-      if (this.curve.signOfX == SignOfX.POSITIVEX) {
-        x2 = x2.conjugate();
+    } else {
+      for (let i = 1; i < 6; i++) {
+        y[i] = x[i].multiply(this.curve.g2Tbl[i - 1].c[0].value);
       }
-
-      x5 = x2;
-      x5 = x5.conjugate();
-      t0 = x2.pow(x);
-      if (this.curve.signOfX == SignOfX.POSITIVEX) {
-        t0 = t0.conjugate();
-      }
-
-      x2 = x2.powq();
-      res = x2;
-      res = res.conjugate();
-      x4 = x4.multiply(res);
-      x2 = x2.powq();
-
-      res = t0;
-      res = res.powq();
-      t0 = t0.multiply(res);
-
-      t0 = t0.usqr();
-      t0 = t0.multiply(x4);
-      t0 = t0.multiply(x5);
-      res = x3.multiply(x5);
-      res = res.multiply(t0);
-      t0 = t0.multiply(x2);
-      res = res.usqr();
-      res = res.multiply(t0);
-      res = res.usqr();
-      t0 = res.multiply(x1);
-      res = res.multiply(x0);
-      t0 = t0.usqr();
-      res = res.multiply(t0);
-
-    } else {  // its a BLS curve
-      // Ghamman & Fouotsa Method
-      y0 = r;
-      y0 = y0.usqr();
-      y1 = y0.pow(x);
-      if (this.curve.signOfX == SignOfX.NEGATIVEX) {
-        y1 = y1.conjugate();
-      }
-      x = x / 2n;
-      y2 = y1.pow(x);
-      if (this.curve.signOfX == SignOfX.NEGATIVEX) {
-        y2 = y2.conjugate();
-      }
-      x *= 2n;
-
-      y3 = r;
-      y3 = y3.conjugate();
-      y1 = y1.multiply(y3);
-      y1 = y1.conjugate();
-      y1 = y1.multiply(y2);
-
-      y2 = y1.pow(x);
-      if (this.curve.signOfX == SignOfX.NEGATIVEX) {
-        y2 = y2.conjugate();
-      }
-      y3 = y2.pow(x);
-      if (this.curve.signOfX == SignOfX.NEGATIVEX) {
-        y3 = y3.conjugate();
-      }
-      y1 = y1.conjugate();
-      y3 = y3.multiply(y1);
-
-      y1 = y1.conjugate();
-      y1 = y1.powq();
-      y1 = y1.powq();
-      y1 = y1.powq();
-
-      y2 = y2.powq();
-      y2 = y2.powq();
-
-      y1 = y1.multiply(y2);
-
-      y2 = y3.pow(x);
-      if (this.curve.signOfX == SignOfX.NEGATIVEX) {
-        y2 = y2.conjugate();
-      }
-      y2 = y2.multiply(y0);
-      y2 = y2.multiply(r);
-      y1 = y1.multiply(y2);
-      y3 = y3.powq();
-      y1 = y1.multiply(y3);
-      res = y1;
     }
-    return res;
+    return new Fq12(this.curve, [
+      new Fq6(this.curve, y.slice(0, 3) as [Fq2, Fq2, Fq2]),
+      new Fq6(this.curve, y.slice(3, 6) as [Fq2, Fq2, Fq2])
+    ]);
+  }
+
+  frobenius3() {
+    const x: Fq2[] = [
+      ...this.c[0].c,
+      ...this.c[1].c
+    ];
+    const y: Fq2[] = new Array<Fq2>();
+    y[0] = x[0].frobenius();
+    for (let i=1; i<6; i++) {
+      y[i] = x[i].frobenius();
+      y[i] = y[i].multiply(this.curve.g3Tbl[i - 1]);
+    }
+    return new Fq12(this.curve, [
+      new Fq6(this.curve, y.slice(0, 3) as [Fq2, Fq2, Fq2]),
+      new Fq6(this.curve, y.slice(3, 6) as [Fq2, Fq2, Fq2])
+    ]);
   }
 }
 

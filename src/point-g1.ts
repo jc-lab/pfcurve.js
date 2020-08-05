@@ -1,13 +1,14 @@
 import {bufferAlloc, BufferConstructor, CurveType, Field, FieldStatic, ICurve, PrivateKey} from './types';
 import {bitGet, toBigInt, toBytesBE} from './utils';
 import {normalizePrivKey} from './intl';
+import Curve from './curve';
 import {ProjectivePoint} from './point-base';
 import Fq from './fq';
 
 export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
   public static readonly Field: FieldStatic<Fq> = Fq;
 
-  public static BASE(curve: ICurve) {
+  public static BASE(curve: Curve) {
     return new PointG1(
       curve,
       new Fq(curve, curve.Gx),
@@ -16,7 +17,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
     );
   }
 
-  public static ZERO(curve: ICurve) {
+  public static ZERO(curve: Curve) {
     return new PointG1(
       curve,
       Fq.ONE(curve),
@@ -25,7 +26,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
     );
   }
 
-  public static INF(curve: ICurve) {
+  public static INF(curve: Curve) {
     return new PointG1(
       curve,
       Fq.ZERO(curve),
@@ -34,11 +35,11 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
     );
   }
 
-  constructor(curve: ICurve, x: Fq, y: Fq, z: Fq) {
+  constructor(curve: Curve, x: Fq, y: Fq, z: Fq) {
     super(curve, x, y, z, Fq, PointG1);
   }
 
-  public static RHS(curve: ICurve, x: bigint): Fq {
+  public static RHS(curve: Curve, x: bigint): Fq {
     const fx = Fq.fromConstant(curve, x);
     const fa = PointG1.CURVE_A(curve);
     const fb = PointG1.CURVE_B(curve);
@@ -413,7 +414,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
   //   return this.getPoint(x, y, z);
   // }
 
-  // static fromCompressedHex(curve: ICurve, hex: Bytes) {
+  // static fromCompressedHex(curve: Curve, hex: Bytes) {
   //   const compressedValue = bytesToNumberBE(hex);
   //   const bflag = mod(compressedValue, POW_2_383) / POW_2_382;
   //   if (bflag === 1n) {
@@ -433,7 +434,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
   //   return p;
   // }
 
-  public static fromX(curve: ICurve, x: bigint, s: bigint = 0n) {
+  public static fromX(curve: Curve, x: bigint, s: bigint = 0n) {
     const fx = new Fq(curve, x);
     const rhs = PointG1.RHS(curve, x);
     if (rhs.qr() !== 1n) {
@@ -453,7 +454,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
     return new PointG1(curve, fx, fy, fz);
   }
 
-  public static fromXY(curve: ICurve, x: bigint, y: bigint, s: bigint = 0n) {
+  public static fromXY(curve: Curve, x: bigint, y: bigint, s: bigint = 0n) {
     const fx = new Fq(curve, x);
     const fy = new Fq(curve, y);
     const rhs = PointG1.RHS(curve, x);
@@ -466,7 +467,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
     return new PointG1(curve, fx, fy, fz);
   }
 
-  public static fromPrivateKey(curve: ICurve, privateKey: PrivateKey): PointG1 {
+  public static fromPrivateKey(curve: Curve, privateKey: PrivateKey): PointG1 {
     return PointG1.BASE(curve).multiply(normalizePrivKey(curve, privateKey));
   }
 
@@ -520,7 +521,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
     return PK;
   }
 
-  public static fromBytes(curve: ICurve, w: Uint8Array): PointG1 {
+  public static fromBytes(curve: Curve, w: Uint8Array): PointG1 {
     const FS = curve.EFS;
     if (curve.curveType === CurveType.MONTGOMERY) {
       const x = toBigInt(w.subarray(0, FS));
@@ -556,11 +557,11 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
     return new Fq(this.curve, this.curve.B);
   }
 
-  public static CURVE_A(curve: ICurve): Fq {
+  public static CURVE_A(curve: Curve): Fq {
     return new Fq(curve, curve.A);
   }
 
-  public static CURVE_B(curve: ICurve): Fq {
+  public static CURVE_B(curve: Curve): Fq {
     return new Fq(curve, curve.B);
   }
 }
