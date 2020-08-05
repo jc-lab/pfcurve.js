@@ -1,5 +1,7 @@
 # pfcurve.js
 
+[![npm version](https://badge.fury.io/js/pfcurve.svg)](https://badge.fury.io/js/pfcurve)
+
 pairing-friendly curve library
 
 ## Support CURVEs
@@ -38,7 +40,9 @@ CPU : i9-9900K @ 3.6GHz
 
 
 ## References
-* https://tools.ietf.org/html/draft-irtf-cfrg-pairing-friendly-curves-07
+* https://tools.ietf.org/html/draft-irtf-cfrg-pairing-friendly-curves-07.html
 * https://tools.ietf.org/html/draft-yonezawa-pairing-friendly-curves-02.html
 * https://github.com/paulmillr/noble-bls12-381
 * https://github.com/miracl/core
+* https://github.com/herumi/mcl
+
