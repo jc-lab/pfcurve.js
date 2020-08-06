@@ -3,7 +3,7 @@ import * as chai from 'chai';
 const expect = chai.expect;
 
 import * as lib from '../../src';
-import { Fq } from '../../src';
+import { bigInt, Fq } from '../../src';
 
 const CURVE = lib.findCurve('Fp462BN') as lib.Curve;
 
@@ -12,7 +12,7 @@ const NUM_RUNS = Number(process.env.RUNS_COUNT || 10); // reduce to 1 to shorten
 describe('bn462 Fp', () => {
   it('Fp equality', () => {
     fc.assert(
-      fc.property(fc.bigInt(1n, Fq.ORDER(CURVE)), num => {
+      fc.property(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), num => {
         const a = new Fq(CURVE, num);
         const b = new Fq(CURVE, num);
         expect(a.equals(b)).true;
@@ -26,8 +26,8 @@ describe('bn462 Fp', () => {
   it('Fp non-equality', () => {
     fc.assert(
       fc.property(
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
         (num1, num2) => {
           const a = new Fq(CURVE, num1);
           const b = new Fq(CURVE, num2);
@@ -42,7 +42,7 @@ describe('bn462 Fp', () => {
   });
   it('Fp square and multiplication equality', () => {
     fc.assert(
-      fc.property(fc.bigInt(1n, Fq.ORDER(CURVE)), num => {
+      fc.property(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), num => {
         const a = new Fq(CURVE, num);
         expect(a.square()).eql(a.multiply(a));
       }),
@@ -53,7 +53,7 @@ describe('bn462 Fp', () => {
   });
   it('Fp multiplication and add equality', () => {
     fc.assert(
-      fc.property(fc.bigInt(1n, Fq.ORDER(CURVE)), num => {
+      fc.property(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), num => {
         const a = new Fq(CURVE, num);
         expect(a.multiply(new Fq(CURVE, 0n))).eql(Fq.ZERO(CURVE));
         expect(a.multiply(Fq.ZERO(CURVE))).eql(Fq.ZERO(CURVE));
@@ -76,8 +76,8 @@ describe('bn462 Fp', () => {
   it('Fp multiplication commutatity', () => {
     fc.assert(
       fc.property(
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
         (num1, num2) => {
           const a = new Fq(CURVE, num1);
           const b = new Fq(CURVE, num2);
@@ -92,9 +92,9 @@ describe('bn462 Fp', () => {
   it('Fp multiplication associativity', () => {
     fc.assert(
       fc.property(
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
         (num1, num2, num3) => {
           const a = new Fq(CURVE, num1);
           const b = new Fq(CURVE, num2);
@@ -110,9 +110,9 @@ describe('bn462 Fp', () => {
   it('Fp multiplication distributivity', () => {
     fc.assert(
       fc.property(
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
         (num1, num2, num3) => {
           const a = new Fq(CURVE, num1);
           const b = new Fq(CURVE, num2);
@@ -129,7 +129,7 @@ describe('bn462 Fp', () => {
   });
   it('Fp division with one equality', () => {
     fc.assert(
-      fc.property(fc.bigInt(1n, Fq.ORDER(CURVE)), num => {
+      fc.property(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), num => {
         const a = new Fq(CURVE, num);
         expect(a.div(Fq.ONE(CURVE))).eql(a);
         expect(a.div(a)).eql(Fq.ONE(CURVE));
@@ -141,7 +141,7 @@ describe('bn462 Fp', () => {
   });
   it('Fp division with.ZERO equality', () => {
     fc.assert(
-      fc.property(fc.bigInt(1n, Fq.ORDER(CURVE)), num => {
+      fc.property(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), num => {
         const a = new Fq(CURVE, num);
         expect(Fq.ZERO(CURVE).div(a)).eql(Fq.ZERO(CURVE));
       }),
@@ -153,9 +153,9 @@ describe('bn462 Fp', () => {
   it('Fp division distributivity', () => {
     fc.assert(
       fc.property(
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
         (num1, num2, num3) => {
           const a = new Fq(CURVE, num1);
           const b = new Fq(CURVE, num2);
@@ -170,7 +170,7 @@ describe('bn462 Fp', () => {
   });
   it('Fp addition with.ZERO equality', () => {
     fc.assert(
-      fc.property(fc.bigInt(1n, Fq.ORDER(CURVE)), num => {
+      fc.property(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), num => {
         const a = new Fq(CURVE, num);
         expect(a.add(Fq.ZERO(CURVE))).eql(a);
       }),
@@ -182,8 +182,8 @@ describe('bn462 Fp', () => {
   it('Fp addition commutatity', () => {
     fc.assert(
       fc.property(
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
         (num1, num2) => {
           const a = new Fq(CURVE, num1);
           const b = new Fq(CURVE, num2);
@@ -198,9 +198,9 @@ describe('bn462 Fp', () => {
   it('Fp add associativity', () => {
     fc.assert(
       fc.property(
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
         (num1, num2, num3) => {
           const a = new Fq(CURVE, num1);
           const b = new Fq(CURVE, num2);
@@ -216,7 +216,7 @@ describe('bn462 Fp', () => {
   it('Fp minus.ZERO equality', () => {
     fc.assert(
       fc.property(
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
         num => {
           const a = new Fq(CURVE, num);
           expect(a.subtract(Fq.ZERO(CURVE))).eql(a);
@@ -231,14 +231,14 @@ describe('bn462 Fp', () => {
   it('Fp minus and negative equality', () => {
     fc.assert(
       fc.property(
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
         (num1) => {
           const a = new Fq(CURVE, num1);
           const b = new Fq(CURVE, num1);
           expect(Fq.ZERO(CURVE).subtract(a)).eql(a.negate());
           expect(a.subtract(b)).eql(a.add(b.negate()));
-          expect(a.subtract(b)).eql(a.add(b.multiply(new Fq(CURVE, -1n))));
+          expect(a.subtract(b)).eql(a.add(b.multiply(new Fq(CURVE, bigInt.minusOne))));
         }
       ),
       {
@@ -249,11 +249,11 @@ describe('bn462 Fp', () => {
   it('Fp negative equality', () => {
     fc.assert(
       fc.property(
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
         num => {
           const a = new Fq(CURVE, num);
           expect(a.negate()).eql(Fq.ZERO(CURVE).subtract(a));
-          expect(a.negate()).eql(a.multiply(new Fq(CURVE, -1n)));
+          expect(a.negate()).eql(a.multiply(new Fq(CURVE, bigInt.minusOne)));
         }
       ),
       {
@@ -264,8 +264,8 @@ describe('bn462 Fp', () => {
   it('Fp division and multiplitaction equality', () => {
     fc.assert(
       fc.property(
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
         (num1, num2) => {
           const a = new Fq(CURVE, num1);
           const b = new Fq(CURVE, num2);
@@ -280,13 +280,13 @@ describe('bn462 Fp', () => {
   it('Fp pow and multiplitaction equality', () => {
     fc.assert(
       fc.property(
-        fc.bigInt(1n, Fq.ORDER(CURVE)),
+        fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())),
         num => {
           const a = new Fq(CURVE, num);
-          expect(a.pow(0n)).eql(Fq.ONE(CURVE));
-          expect(a.pow(1n)).eql(a);
-          expect(a.pow(2n)).eql(a.multiply(a));
-          expect(a.pow(3n)).eql(a.multiply(a).multiply(a));
+          expect(a.pow(bigInt.zero)).eql(Fq.ONE(CURVE));
+          expect(a.pow(bigInt.one)).eql(a);
+          expect(a.pow(bigInt['2'])).eql(a.multiply(a));
+          expect(a.pow(bigInt['3'])).eql(a.multiply(a).multiply(a));
         }
       ),
       {

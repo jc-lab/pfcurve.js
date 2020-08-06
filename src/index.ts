@@ -1,4 +1,5 @@
 import {
+  BigInteger, bigInt,
   ICurve
 } from './types';
 export * from './types';

@@ -1,4 +1,7 @@
-import {bufferAlloc, BufferConstructor, CurveType, Field, FieldStatic, ICurve, PrivateKey} from './types';
+import {
+  BigInteger, bigInt,
+  bufferAlloc, BufferConstructor, CurveType, Field, FieldStatic, ICurve, PrivateKey
+} from './types';
 import {bitGet, toBigInt, toBytesBE} from './utils';
 import {normalizePrivKey} from './intl';
 import Curve from './curve';
@@ -39,7 +42,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
     super(curve, x, y, z, Fq, PointG1);
   }
 
-  public static RHS(curve: Curve, x: bigint): Fq {
+  public static RHS(curve: Curve, x: BigInteger): Fq {
     const fx = Fq.fromConstant(curve, x);
     const fa = PointG1.CURVE_A(curve);
     const fb = PointG1.CURVE_B(curve);
@@ -64,7 +67,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
           fb.multiply(fx.square()).subtract(Fq.ONE(curve)).invert()
         );
     case CurveType.MONTGOMERY:
-      return fx.pow(3n).add(fa.multiply(fx.pow(3n)));
+      return fx.pow(bigInt['3']).add(fa.multiply(fx.pow(bigInt['3'])));
     }
     throw new Error('Unknown curve type');
   }
@@ -119,9 +122,9 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
 
   public double() {
     let {x, y, z} = this;
-    let A: Fq, AA: Fq, B: Fq, BB: Fq, C: Fq, D: Fq, H: Fq, J: Fq, b: bigint, t0: Fq, t1: Fq, t2: Fq, t3: Fq, x3: Fq, y3: Fq, z3: Fq;
+    let A: Fq, AA: Fq, B: Fq, BB: Fq, C: Fq, D: Fq, H: Fq, J: Fq, b: BigInteger, t0: Fq, t1: Fq, t2: Fq, t3: Fq, x3: Fq, y3: Fq, z3: Fq;
     if (this.curve.curveType === CurveType.WEIERSTRASS) {
-      if (this.curve.A === 0n) {
+      if (this.curve.A.isZero()) {
         t0 = y;
         t0 = (t0.multiply(t0));
         t1 = y;
@@ -131,7 +134,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
         z = (t0.add(t0));
         z = z.add(z);
         z = z.add(z);
-        t2 = t2.multiply(this.curve.B + this.curve.B + this.curve.B);
+        t2 = t2.multiply(this.curve.B.multiply(3)); // this.curve.B + this.curve.B + this.curve.B
         x3 = (t2.multiply(z));
         y3 = (t0.add(t2));
         z = z.multiply(t1);
@@ -202,7 +205,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
       x = x.add(x);
       C = C.multiply(C);
       D = D.multiply(D);
-      if (new Fq(this.curve, this.curve.A).equals(new Fq(this.curve, (-1n)))) {
+      if (new Fq(this.curve, this.curve.A).equals(new Fq(this.curve, bigInt.minusOne))) {
         C = C.negate();
       }
       y = (C.add(D));
@@ -230,7 +233,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
       C = (AA.subtract(BB));
       x = (AA.multiply(BB));
 
-      A = C.multiply((this.curve.A + 2n) / 2n / 2n);
+      A = C.multiply(this.curve.A.add(bigInt['2']).divide(bigInt['4']));
       BB = BB.add(A);
       z = BB.multiply(C);
     }
@@ -239,14 +242,14 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
 
   public add(rhs: ProjectivePoint<Fq, PointG1>): this {
     let {x, y, z} = this;
-    let A: Fq, B: Fq, C: Fq, D: Fq, E: Fq, F: Fq, G: Fq, b: bigint, t0: Fq, t1: Fq, t2: Fq, t3: Fq, t4: Fq, x3: Fq, y3: Fq, z3: Fq;
+    let A: Fq, B: Fq, C: Fq, D: Fq, E: Fq, F: Fq, G: Fq, b: BigInteger, t0: Fq, t1: Fq, t2: Fq, t3: Fq, t4: Fq, x3: Fq, y3: Fq, z3: Fq;
 
     if (this.isZero()) return rhs as this;
     if (rhs.isZero()) return this;
 
     if (this.curve.curveType === CurveType.WEIERSTRASS) {
-      if (this.curve.A === 0n) {
-        b = (this.curve.B + this.curve.B + this.curve.B);
+      if (this.curve.A.isZero()) {
+        b = (this.curve.B.multiply(3)); // this.curve.B + this.curve.B + this.curve.B
         t0 = x;
         t0 = t0.multiply(rhs.x);
         t1 = y;
@@ -368,7 +371,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
       E = E.multiply(b);
       F = (B.subtract(E));
       G = (B.add(E));
-      if ((this.curve.A === 1n)) {
+      if (this.curve.A.equals(bigInt.one)) {
         E = (D.subtract(C));
       }
       C = C.add(D);
@@ -378,10 +381,10 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
       B = B.subtract(C);
       B = B.multiply(F);
       x = (A.multiply(B));
-      if ((this.curve.A === 1n)) {
+      if (this.curve.A.equals(bigInt.one)) {
         C = (E.multiply(G));
       }
-      if (new Fq(this.curve, this.curve.A).equals(new Fq(this.curve, (-1n)))) {
+      if (new Fq(this.curve, this.curve.A).equals(new Fq(this.curve, bigInt.minusOne))) {
         C = C.multiply(G);
       }
       y = (A.multiply(C));
@@ -434,17 +437,17 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
   //   return p;
   // }
 
-  public static fromX(curve: Curve, x: bigint, s: bigint = 0n) {
+  public static fromX(curve: Curve, x: BigInteger, s: number = 0) {
     const fx = new Fq(curve, x);
     const rhs = PointG1.RHS(curve, x);
-    if (rhs.qr() !== 1n) {
+    if (rhs.qr().notEquals(bigInt.one)) {
       throw new Error('qr != 1');
     }
     const fz = Fq.ONE(curve);
     let fy: Fq | undefined = undefined;
     if (curve.curveType != CurveType.MONTGOMERY) {
       fy = rhs.sqrt();
-      if (bitGet(fy.value, 0) != s) {
+      if (bitGet(fy.value, 0).notEquals(s)) {
         fy = fy.negate();
       }
     }
@@ -454,7 +457,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
     return new PointG1(curve, fx, fy, fz);
   }
 
-  public static fromXY(curve: Curve, x: bigint, y: bigint, s: bigint = 0n) {
+  public static fromXY(curve: Curve, x: BigInteger, y: BigInteger, s: BigInteger = bigInt.zero) {
     const fx = new Fq(curve, x);
     const fy = new Fq(curve, y);
     const rhs = PointG1.RHS(curve, x);
@@ -471,13 +474,13 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
     return PointG1.BASE(curve).multiply(normalizePrivKey(curve, privateKey));
   }
 
-  getXS(): [bigint, bigint] {
+  getXS(): [BigInteger, BigInteger] {
     if (this.isInf()) {
-      return [0n, 0n];
+      return [bigInt.zero, bigInt.zero];
     }
     const [x, y] = this.toAffine();
     if (this.curve.curveType === CurveType.MONTGOMERY) {
-      return [x.value, 0n];
+      return [x.value, bigInt.zero];
     }
     return [x.value, bitGet(y.value, 0)];
   }
@@ -499,7 +502,7 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
     if (compress) {
       const [x, b] = this.getXS();
       PK = bufferAlloc(_bufferConstructor, FS + 1);
-      if (b === 0n) {
+      if (b.isZero()) {
         PK[0] = 2;
       } else {
         PK[0] = 3;
@@ -536,9 +539,9 @@ export default class PointG1 extends ProjectivePoint<Fq, PointG1> {
       return PointG1.fromXY(curve, x, y);
     } else {
       if (t === 2) {
-        return PointG1.fromX(curve, x, 0n);
+        return PointG1.fromX(curve, x, 0);
       } else if (t === 3) {
-        return PointG1.fromX(curve, x, 1n);
+        return PointG1.fromX(curve, x, 1);
       }
       throw new Error('Wrong value');
     }

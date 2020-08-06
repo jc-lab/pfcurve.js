@@ -1,4 +1,7 @@
-import {bufferAlloc, BufferConstructor, CurveType, FieldStatic, ICurve, PrivateKey, SexticTwist} from './types';
+import {
+  BigInteger, bigInt,
+  bufferAlloc, BufferConstructor, CurveType, FieldStatic, ICurve, PrivateKey, SexticTwist
+} from './types';
 import {normalizePrivKey} from './intl';
 import {ProjectivePoint} from './point-base';
 import Curve from './curve';
@@ -10,7 +13,7 @@ export default class PointG2 extends ProjectivePoint<Fq2, PointG2> {
   public static readonly Field: FieldStatic<Fq2> = Fq2;
 
   public static BASE(curve: Curve) {
-    return new PointG2(curve, new Fq2(curve, curve.G2x), new Fq2(curve, curve.G2y), Fq2.ONE(curve));
+    return new PointG2(curve, Fq2.fromTuple(curve, curve.G2x), Fq2.fromTuple(curve, curve.G2y), Fq2.ONE(curve));
   }
 
   public static ZERO(curve: Curve) {
@@ -31,7 +34,7 @@ export default class PointG2 extends ProjectivePoint<Fq2, PointG2> {
   }
 
   public static RHS(curve: Curve, x: Fq2): Fq2 {
-    const curveB = new Fq2(curve, curve.B2);
+    const curveB = Fq2.fromTuple(curve, curve.B2);
     if (curve.sexticTwist === SexticTwist.D_TYPE) {
       return x.multiply(x).multiply(x).add(curveB);
     } else {
@@ -45,7 +48,7 @@ export default class PointG2 extends ProjectivePoint<Fq2, PointG2> {
   }
 
   public qr(): Fq2 {
-    return this.x.pow((this.curve.P - 1n) / 2n);
+    return this.x.pow((this.curve.P.subtract(bigInt.one)).divide(bigInt['2']));
   }
 
   public static fromXY(curve: Curve, x: Fq2, y: Fq2) {
@@ -54,14 +57,14 @@ export default class PointG2 extends ProjectivePoint<Fq2, PointG2> {
     return p;
   }
 
-  public static fromX(curve: Curve, x: Fq2, s: number | bigint) {
+  public static fromX(curve: Curve, x: Fq2, s: number | BigInteger) {
     let rhs = PointG2.RHS(curve, x);
     const sign = BigInt(s);
-    if (rhs.qr() !== 1n) {
+    if (rhs.qr().notEquals(bigInt.one)) {
       throw new Error('Wrong value 1');
     }
     rhs = rhs.sqrt();
-    if (rhs.sign() != sign) {
+    if (rhs.sign().notEquals(sign)) {
       rhs = rhs.negate();
     }
     return new PointG2(curve,
@@ -128,7 +131,7 @@ export default class PointG2 extends ProjectivePoint<Fq2, PointG2> {
     z = z.add(z);
     z = z.add(z);
 
-    t2 = t2.muli(3n * this.curve.B);
+    t2 = t2.muli(this.curve.B.multiply(bigInt['3']));
     if (this.curve.sexticTwist === SexticTwist.M_TYPE) {
       t2 = t2.mulQNR();
     }
@@ -196,13 +199,13 @@ export default class PointG2 extends ProjectivePoint<Fq2, PointG2> {
 
     x3 = t0.add(t0);
     t0 = t0.add(x3);
-    t2 = t2.multiply(3n * this.curve.B);
+    t2 = t2.multiply(this.curve.B.multiply(bigInt['3']));
     if (this.curve.sexticTwist == SexticTwist.M_TYPE) {
       t2 = t2.mulQNR();
     }
     z3 = t1.add(t2);
     t1 = t1.subtract(t2);
-    y3 = y3.multiply(3n * this.curve.B);
+    y3 = y3.multiply(this.curve.B.multiply(bigInt['3']));
     if (this.curve.sexticTwist == SexticTwist.M_TYPE) {
       y3 = y3.mulQNR();
     }
@@ -280,7 +283,7 @@ export default class PointG2 extends ProjectivePoint<Fq2, PointG2> {
       }
     } else {
       PK[0] = 0x02;
-      if (this.y.sign() > 0n) {
+      if (this.y.sign().greater(bigInt.zero)) {
         PK[0] = 0x03;
       }
     }
@@ -365,18 +368,18 @@ export default class PointG2 extends ProjectivePoint<Fq2, PointG2> {
   // }
 
   protected _curveA(): Fq2 {
-    return new Fq2(this.curve, [this.curve.A, 0n]);
+    return Fq2.fromTuple(this.curve, [this.curve.A, bigInt.zero]);
   }
 
   protected _curveB(): Fq2 {
-    return new Fq2(this.curve, this.curve.B2);
+    return Fq2.fromTuple(this.curve, this.curve.B2);
   }
 
   public static CURVE_A(curve: Curve): Fq2 {
-    return new Fq2(curve, [curve.A, 0n]);
+    return Fq2.fromTuple(curve, [curve.A, bigInt.zero]);
   }
 
   public static CURVE_B(curve: Curve): Fq2 {
-    return new Fq2(curve, curve.B2);
+    return Fq2.fromTuple(curve, curve.B2);
   }
 }

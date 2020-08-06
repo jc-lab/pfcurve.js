@@ -1,4 +1,5 @@
 import {
+  BigInteger, bigInt,
   Field, FieldStatic, ICurve
 } from './types';
 import {
@@ -9,7 +10,7 @@ import Curve from './curve';
 export default class Fr implements Field<Fr> {
   public readonly curve: Curve;
 
-  static isValid(curve: Curve, b: bigint): boolean {
+  static isValid(curve: Curve, b: BigInteger): boolean {
     return b <= curve.P;
   }
 
@@ -17,13 +18,13 @@ export default class Fr implements Field<Fr> {
     return this.value <= this.curve.P;
   }
 
-  readonly value: bigint;
-  constructor(curve: Curve, value: bigint) {
+  readonly value: BigInteger;
+  constructor(curve: Curve, value: BigInteger) {
     this.curve = curve;
     this.value = mod(value, this.order);
   }
 
-  public get order(): bigint {
+  public get order(): BigInteger {
     return this.curve.r;
   }
 
@@ -36,95 +37,95 @@ export default class Fr implements Field<Fr> {
   }
 
   public static ZERO(curve: Curve) {
-    return new Fr(curve, 0n);
+    return new Fr(curve, bigInt.zero);
   }
 
   public static ONE(curve: Curve) {
-    return new Fr(curve, 1n);
+    return new Fr(curve, bigInt.one);
   }
 
-  public static fromConstant(curve: Curve, c: bigint) {
+  public static fromConstant(curve: Curve, c: BigInteger) {
     return new Fr(curve, c);
   }
 
   isZero(): boolean {
-    return this.value === 0n;
+    return this.value.isZero();
   }
 
   equals(rhs: Fr): boolean {
-    return this.value === rhs.value;
+    return this.value.equals(rhs.value);
   }
 
   negate(): Fr {
-    return new Fr(this.curve, -this.value);
+    return new Fr(this.curve, this.value.negate());
   }
 
   invert(): Fr {
-    let [x0, x1, y0, y1] = [1n, 0n, 0n, 1n];
+    let [x0, x1, y0, y1] = [bigInt.one, bigInt.zero, bigInt.zero, bigInt.one];
     let a = this.order;
     let b = this.value;
-    let q;
-    while (a !== 0n) {
-      [q, b, a] = [b / a, a, b % a];
-      [x0, x1] = [x1, x0 - q * x1];
-      [y0, y1] = [y1, y0 - q * y1];
+    let q: BigInteger;
+    while (!a.isZero()) {
+      [q, b, a] = [b.divide(a), a, b.mod(a)];
+      [x0, x1] = [x1, x0.subtract(q.multiply(x1))];
+      [y0, y1] = [y1, y0.subtract(q.multiply(y1))];
     }
     return new Fr(this.curve, x0);
   }
 
   add(rhs: Fr): Fr {
-    return new Fr(this.curve, this.value + rhs.value);
+    return new Fr(this.curve, this.value.add(rhs.value));
   }
 
   square(): Fr {
-    return new Fr(this.curve, this.value * this.value);
+    return new Fr(this.curve, this.value.square());
   }
 
-  pow(n: bigint): Fr {
+  pow(n: BigInteger): Fr {
     return new Fr(this.curve, powMod(this.value, n, this.order));
   }
 
   subtract(rhs: Fr): Fr {
-    return new Fr(this.curve, this.value - rhs.value);
+    return new Fr(this.curve, this.value.subtract(rhs.value));
   }
 
-  multiply(rhs: Fr | bigint): Fr {
+  multiply(rhs: Fr | BigInteger): Fr {
     if (rhs instanceof Fr) rhs = rhs.value;
-    return new Fr(this.curve, this.value * rhs);
+    return new Fr(this.curve, this.value.multiply(rhs));
   }
 
-  div(rhs: Fr | bigint): Fr {
-    const inv = typeof rhs === 'bigint' ? new Fr(this.curve, rhs).invert().value : rhs.invert();
+  div(rhs: Fr | BigInteger): Fr {
+    const inv = bigInt.isInstance(rhs) ? new Fr(this.curve, rhs).invert().value : rhs.invert();
     return this.multiply(inv);
   }
   legendre(): Fr {
-    return this.pow((this.order - 1n) / 2n);
+    return this.pow((this.order.subtract(bigInt.one)).divide(bigInt['2']));
   }
   // Tonelli-Shanks algorithm
   sqrt(): Fr | undefined {
-    if (!this.legendre().equals(new Fr(this.curve, 1n))) return;
+    if (!this.legendre().equals(new Fr(this.curve, bigInt.one))) return;
     const P = this.order;
-    let q, s, z;
-    for (q = P - 1n, s = 0; q % 2n == 0n; q /= 2n, s++);
-    if (s == 1) return this.pow((P + 1n) / 4n);
-    for (z = 2n; z < P && new Fr(this.curve, z).legendre().value != P - 1n; z++);
+    let q: BigInteger, s: number, z: BigInteger;
+    for (q = P.subtract(bigInt.one), s = 0; q.mod(bigInt['2']).isZero(); q = q.divide(bigInt['2']), s++);
+    if (s == 1) return this.pow((P.add(bigInt['1'])).divide(bigInt['4']));
+    for (z = bigInt['2']; z < P && new Fr(this.curve, z).legendre().value.notEquals(P.subtract(bigInt.one)); z = z.add(bigInt.one));
 
     let c = powMod(z, q, P);
-    let r = powMod(this.value, (q + 1n) / 2n, P);
+    let r = powMod(this.value, (q.add(bigInt.one)).divide(bigInt['2']), P);
     let t = powMod(this.value, q, P);
 
-    let t2 = 0n;
-    while (mod(t - 1n, P) != 0n) {
-      t2 = mod(t * t, P);
+    let t2 = bigInt.zero;
+    while (!mod(t.subtract(bigInt.one), P).isZero()) {
+      t2 = mod(t.square(), P);
       let i;
       for (i = 1; i < s; i++) {
-        if (mod(t2 - 1n, P) == 0n) break;
-        t2 = mod(t2 * t2, P);
+        if (mod(t2.subtract(bigInt.one), P).isZero()) break;
+        t2 = mod(t2.square(), P);
       }
-      const b = powMod(c, BigInt(1 << (s - i - 1)), P);
-      r = mod(r * b, P);
-      c = mod(b * b, P);
-      t = mod(t * c, P);
+      const b = powMod(c, bigInt(1 << (s - i - 1)), P);
+      r = mod(r.multiply(b), P);
+      c = mod(b.square(), P);
+      t = mod(t.multiply(c), P);
       s = i;
     }
     return new Fr(this.curve, r);

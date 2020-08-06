@@ -1,18 +1,25 @@
 import {
-  ICurve, BigintSix, FieldStatic
+  BigInteger, bigInt,
+  ICurve, BigintSix, FieldStatic, NativeBigintSix
 } from './types';
 import {
   FQP
 } from './intl';
 import Curve from './curve';
+import Fq from './fq';
 import Fq2 from './fq2';
 
 const S_CURVE = Symbol('curve');
 export default class Fq6 extends FQP<Fq6, Fq2, [Fq2, Fq2, Fq2]> {
   private readonly [S_CURVE]: Curve;
 
-  static fromTuple(curve: Curve, t: BigintSix): Fq6 {
-    return new Fq6(curve, [new Fq2(curve, t.slice(0, 2)), new Fq2(curve, t.slice(2, 4)), new Fq2(curve, t.slice(4, 6))]);
+  static fromTuple(curve: Curve, t: BigintSix | NativeBigintSix): Fq6 {
+    const q = (t as any[]).map<Fq>(v => (typeof v === 'bigint' || bigInt.isInstance(v)) ? new Fq(curve, v) : v);
+    return new Fq6(curve, [
+      new Fq2(curve, [q[0], q[1]]),
+      new Fq2(curve, [q[2], q[3]]),
+      new Fq2(curve, [q[4], q[5]])
+    ]);
   }
 
   public static ZERO(curve: Curve) {
@@ -23,8 +30,8 @@ export default class Fq6 extends FQP<Fq6, Fq2, [Fq2, Fq2, Fq2]> {
     return new Fq6(curve, [Fq2.ONE(curve), Fq2.ZERO(curve), Fq2.ZERO(curve)]);
   }
 
-  public static fromConstant(curve: Curve, c: bigint) {
-    return Fq6.fromTuple(curve, [c, 0n, 0n, 0n, 0n, 0n]);
+  public static fromConstant(curve: Curve, c: BigInteger) {
+    return Fq6.fromTuple(curve, [c, bigInt.zero, bigInt.zero, bigInt.zero, bigInt.zero, bigInt.zero]);
   }
 
   public toTuple(): BigintSix {
@@ -33,7 +40,7 @@ export default class Fq6 extends FQP<Fq6, Fq2, [Fq2, Fq2, Fq2]> {
         out.push(...cur.toTuple());
         return out;
       },
-      [] as bigint[]
+      [] as BigInteger[]
     ) as BigintSix;
   }
 
@@ -58,8 +65,8 @@ export default class Fq6 extends FQP<Fq6, Fq2, [Fq2, Fq2, Fq2]> {
   //   return this.c[0].subtract(this.c[1]);
   // }
 
-  multiply(rhs: Fq6 | bigint) {
-    if (typeof rhs === 'bigint')
+  multiply(rhs: Fq6 | BigInteger) {
+    if (bigInt.isInstance(rhs))
       return new Fq6(this.curve, [this.c[0].multiply(rhs), this.c[1].multiply(rhs), this.c[2].multiply(rhs)]);
     const [c0, c1, c2] = this.c;
     const [r0, r1, r2] = rhs.c;
@@ -111,8 +118,8 @@ export default class Fq6 extends FQP<Fq6, Fq2, [Fq2, Fq2, Fq2]> {
   square() {
     const [c0, c1, c2] = this.c;
     const t0 = c0.square(); // c0^2
-    const t1 = c0.multiply(c1).multiply(2n); // 2 * c0 * c1
-    const t3 = c1.multiply(c2).multiply(2n); // 2 * c1 * c2
+    const t1 = c0.multiply(c1).multiply(bigInt['2']); // 2 * c0 * c1
+    const t3 = c1.multiply(c2).multiply(bigInt['2']); // 2 * c1 * c2
     const t4 = c2.square(); // c2^2
     return new Fq6(this.curve, [
       t3.mulByNonresidue().add(t0), // T3 * (u + 1) + T0
@@ -133,13 +140,13 @@ export default class Fq6 extends FQP<Fq6, Fq2, [Fq2, Fq2, Fq2]> {
   }
 
   // Raises to q**i -th power
-  frobeniusMap(power: number) {
-    return new Fq6(this.curve, [
-      this.c[0].frobeniusMap(power),
-      this.c[1].frobeniusMap(power).multiply(this.curve.frobeniusCoeffses.fq6[0][power % 6]),
-      this.c[2].frobeniusMap(power).multiply(this.curve.frobeniusCoeffses.fq6[1][power % 6]),
-    ]);
-  }
+  // frobeniusMap(power: number) {
+  //   return new Fq6(this.curve, [
+  //     this.c[0].frobeniusMap(power),
+  //     this.c[1].frobeniusMap(power).multiply(this.curve.frobeniusCoeffses.fq6[0][power % 6]),
+  //     this.c[2].frobeniusMap(power).multiply(this.curve.frobeniusCoeffses.fq6[1][power % 6]),
+  //   ]);
+  // }
 
   mul_tau() {
     const tx = this.c[1];

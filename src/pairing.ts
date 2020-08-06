@@ -1,4 +1,7 @@
-import {SexticTwist, SignOfX} from './types';
+import {
+  BigInteger, bigInt,
+  SexticTwist, SignOfX
+} from './types';
 import Fq from './fq';
 import Fq2 from './fq2';
 import Fq12 from './fq12';
@@ -15,7 +18,7 @@ function dblLineWithoutP(Q: PointG2): [Fq6, PointG2] {
   let t4 = Qx.multiply(Qy);
   const t1 = Q.y.square();
   let t3 = t0.add(t0);
-  t4 = t4.div(2n);
+  t4 = t4.div(bigInt['2']);
   const t5 = t0.add(t1);
   t0 = t0.add(t3);
   const t2 = t0.multiply(PointG2.CURVE_B(curve));
@@ -25,7 +28,7 @@ function dblLineWithoutP(Q: PointG2): [Fq6, PointG2] {
   Qx = t1.subtract(t3);
   t3 = t3.add(t1);
   Qx = Qx.multiply(t4);
-  t3 = t3.div(2n);
+  t3 = t3.div(bigInt['2']);
   let T0 = t3.square();
   let T1 = t2.square();
   T0 = T0.subtract(T1);

@@ -1,11 +1,12 @@
 import {
+  bigInt, BigInteger,
   BigintTuple,
   CurveType,
   ICurve, INonResidues, PairingFriendly, SexticTwist, SignOfX
 } from './types';
-import {
-  frobeniusCoeffs
-} from './intl';
+// import {
+//   frobeniusCoeffs
+// } from './intl';
 
 interface IFrobeniusCoeffses {
   fq2: Fq[],
@@ -14,11 +15,11 @@ interface IFrobeniusCoeffses {
   fq12: Fq2[]
 }
 
-function convertToBinary(x: bigint): number[] {
+function convertToBinary(x: BigInteger): number[] {
   const len = bitLen(x);
   const v = Array<number>(len);
   for (let i = 0; i < len; i++) {
-    v[i] = bitGet(x, len - 1 - i) ? 1 : 0;
+    v[i] = bitGet(x, len - 1 - i).isZero() ? 0 : 1;
   }
   return v;
 }
@@ -75,7 +76,7 @@ function convertToNAF(_in: number[]): number[]
  * return true if naf is selected
  * @param x
  */
-function getNAF(x: bigint): [boolean, number[]] {
+function getNAF(x: BigInteger): [boolean, number[]] {
   const bin = convertToBinary(x);
   const naf = convertToNAF(bin);
   const binW = getNumOfNonZeroElement(bin);
@@ -87,10 +88,8 @@ function getNAF(x: bigint): [boolean, number[]] {
   }
 }
 
-function abs(x: bigint): bigint {
-  if (x < 0n)
-    return -x;
-  return x;
+function abs(x: BigInteger): BigInteger {
+  return x.abs();
 }
 
 export default class Curve implements ICurve {
@@ -121,22 +120,22 @@ export default class Curve implements ICurve {
       fq12: []
     };
 
-    if (param.nonresidues.fp && param.nonresidues.fp.length > 0) {
-      const coeffs = param.nonresidues.fp;
-      frobeniusCoeffses.fq2 = frobeniusCoeffs(new Fq(this, coeffs[0]), param.P, 2)[0];
-    }
-
-    if (param.nonresidues.fp2 && param.nonresidues.fp2.length > 0) {
-      const coeffs = param.nonresidues.fp2;
-      frobeniusCoeffses.fq4 = frobeniusCoeffs(Fq2.fromTuple(this, coeffs as BigintTuple), param.P, 4, 2, 2);
-      frobeniusCoeffses.fq6 = frobeniusCoeffs(Fq2.fromTuple(this, coeffs as BigintTuple), param.P, 6, 2, 3);
-      frobeniusCoeffses.fq12 = frobeniusCoeffs(Fq2.fromTuple(this, coeffs as BigintTuple), param.P, 12, 2, 6)[0];
-    }
+    // if (param.nonresidues.fp && param.nonresidues.fp.length > 0) {
+    //   const coeffs = param.nonresidues.fp;
+    //   frobeniusCoeffses.fq2 = frobeniusCoeffs(new Fq(this, coeffs[0]), param.P, 2)[0];
+    // }
+    //
+    // if (param.nonresidues.fp2 && param.nonresidues.fp2.length > 0) {
+    //   const coeffs = param.nonresidues.fp2;
+    //   frobeniusCoeffses.fq4 = frobeniusCoeffs(Fq2.fromTuple(this, coeffs as BigintTuple), param.P, 4, 2, 2);
+    //   frobeniusCoeffses.fq6 = frobeniusCoeffs(Fq2.fromTuple(this, coeffs as BigintTuple), param.P, 6, 2, 3);
+    //   frobeniusCoeffses.fq12 = frobeniusCoeffs(Fq2.fromTuple(this, coeffs as BigintTuple), param.P, 12, 2, 6)[0];
+    // }
 
     this._frobeniusCoeffses = Object.freeze(frobeniusCoeffses);
 
     this.isBLS12 = /Fp(\d+)BLS12/i.test(this.name);
-    const largest_c = this.isBLS12 ? this.x : abs(this.x * 6n + 2n);
+    const largest_c = this.isBLS12 ? this.x : abs(this.x.multiply(bigInt['6']).add(bigInt['2']));
     const [useNAF, siTbl] = getNAF(largest_c);
     this.useNAF = useNAF;
     this.siTbl = siTbl;
@@ -152,17 +151,17 @@ export default class Curve implements ICurve {
 		g = xi^((p - 1) / 6)
 		gTbl[] = { g^2, g^4, g^1, g^3, g^5 }
     */
-    const gTmp = Fq2.fromTuple(this, this.nonresidues.fp2 as BigintTuple).pow((this.P - 1n) / 6n);
-    gTbl[0] = gTmp.pow(2n);
-    gTbl[1] = gTmp.pow(4n);
+    const gTmp = Fq2.fromTuple(this, this.nonresidues.fp2 as BigintTuple).pow((this.P.subtract(bigInt.one)).divide(bigInt['6']));
+    gTbl[0] = gTmp.pow(bigInt['2']);
+    gTbl[1] = gTmp.pow(bigInt['4']);
     gTbl[2] = gTmp;
-    gTbl[3] = gTmp.pow(3n);
-    gTbl[4] = gTmp.pow(5n);
+    gTbl[3] = gTmp.pow(bigInt['3']);
+    gTbl[4] = gTmp.pow(bigInt['5']);
 
     const pmod4 = Fq.Pmod4(this);
     for (let i = 0; i < gN; i++) {
       let t = gTbl[i];
-      if (pmod4 === 3n) {
+      if (pmod4.equals(bigInt['3'])) {
         t = new Fq2(this, [t.c[0], t.c[1].negate()]);
       }
       g2Tbl[i] = t.multiply(gTbl[i]);
@@ -210,47 +209,47 @@ export default class Curve implements ICurve {
     return this._param.nonresidues;
   }
 
-  public get A(): bigint {
+  public get A(): BigInteger {
     return this._param.A;
   }
-  public get B(): bigint {
+  public get B(): BigInteger {
     return this._param.B;
   }
-  public get B2(): [bigint, bigint] {
+  public get B2(): [BigInteger, BigInteger] {
     return this._param.B2;
   }
 
   // x (only positive)
-  public get x(): bigint {
+  public get x(): BigInteger {
     return this._param.x;
   }
 
   // a characteristic
-  public get P(): bigint {
+  public get P(): BigInteger {
     return this._param.P;
   }
 
   // an order
-  public get r(): bigint {
+  public get r(): BigInteger {
     return this._param.r;
   }
 
   // a cofactor
-  public get h(): bigint {
+  public get h(): BigInteger {
     return this._param.h;
   }
 
-  public get Gx(): bigint {
+  public get Gx(): BigInteger {
     return this._param.Gx;
   }
-  public get Gy(): bigint {
+  public get Gy(): BigInteger {
     return this._param.Gy;
   }
 
-  public get G2x(): [bigint, bigint] {
+  public get G2x(): [BigInteger, BigInteger] {
     return this._param.G2x;
   }
-  public get G2y(): [bigint, bigint] {
+  public get G2y(): [BigInteger, BigInteger] {
     return this._param.G2y;
   }
 }

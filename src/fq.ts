@@ -1,4 +1,5 @@
 import {
+  BigInteger, bigInt,
   Field, FieldStatic, ICurve
 } from './types';
 import {
@@ -10,9 +11,10 @@ const S_CURVE = Symbol('curve');
 export default class Fq implements Field<Fq> {
   private readonly [S_CURVE]: Curve;
 
-  readonly value: bigint;
-  constructor(curve: Curve, value: bigint) {
+  readonly value: BigInteger;
+  constructor(curve: Curve, value: BigInteger | bigint) {
     this[S_CURVE] = curve;
+    value = bigInt.isInstance(value) ? value : bigInt(value);
     this.value = mod(value, this.order);
   }
 
@@ -20,7 +22,7 @@ export default class Fq implements Field<Fq> {
     return this[S_CURVE];
   }
 
-  public get order(): bigint {
+  public get order(): BigInteger {
     return this[S_CURVE].P;
   }
 
@@ -33,7 +35,7 @@ export default class Fq implements Field<Fq> {
   }
 
   public static Pmod4(curve: Curve) {
-    return Fq.ORDER(curve) % 4n;
+    return Fq.ORDER(curve).mod(bigInt['4']);
   }
 
   public static MAX_BITS(curve: Curve) {
@@ -41,14 +43,14 @@ export default class Fq implements Field<Fq> {
   }
 
   public static ZERO(curve: Curve) {
-    return new Fq(curve, 0n);
+    return new Fq(curve, bigInt.zero);
   }
 
   public static ONE(curve: Curve) {
-    return new Fq(curve, 1n);
+    return new Fq(curve, bigInt.one);
   }
 
-  public static fromConstant(curve: Curve, c: bigint) {
+  public static fromConstant(curve: Curve, c: BigInteger) {
     return new Fq(curve, c);
   }
 
@@ -59,66 +61,66 @@ export default class Fq implements Field<Fq> {
   }
 
   isZero(): boolean {
-    return this.value === 0n;
+    return this.value.isZero();
   }
 
   equals(rhs: Fq): boolean {
-    return this.value === rhs.value;
+    return this.value.equals(rhs.value);
   }
 
   negate(): Fq {
-    return new Fq(this.curve, -this.value);
+    return new Fq(this.curve, this.value.negate());
   }
 
   invert(): Fq {
-    let [x0, x1, y0, y1] = [1n, 0n, 0n, 1n];
+    let [x0, x1, y0, y1] = [bigInt.one, bigInt.zero, bigInt.zero, bigInt.one];
     let a = this.order;
     let b = this.value;
-    let q;
-    while (a !== 0n) {
-      [q, b, a] = [b / a, a, b % a];
-      [x0, x1] = [x1, x0 - q * x1];
-      [y0, y1] = [y1, y0 - q * y1];
+    let q: BigInteger;
+    while (!a.isZero()) {
+      [q, b, a] = [b.divide(a), a, b.mod(a)];
+      [x0, x1] = [x1, x0.subtract(q.multiply(x1))];
+      [y0, y1] = [y1, y0.subtract(q.multiply(y1))];
     }
     return new Fq(this.curve, x0);
   }
 
   add(rhs: Fq): Fq {
-    return new Fq(this.curve, this.value + rhs.value);
+    return new Fq(this.curve, this.value.add(rhs.value));
   }
 
-  qr(): bigint {
-    return powMod(this.value, (this.order - 1n) / 2n, this.order);
+  qr(): BigInteger {
+    return powMod(this.value, (this.order.subtract(bigInt.one)).divide(bigInt['2']), this.order);
   }
 
   square(): Fq {
-    return new Fq(this.curve, this.value * this.value);
+    return new Fq(this.curve, this.value.square());
   }
 
   sqrt(): Fq {
     return new Fq(this.curve, sqrtMod(this.value, this.order));
   }
 
-  pow(n: bigint): Fq {
+  pow(n: BigInteger): Fq {
     return new Fq(this.curve, powMod(this.value, n, this.order));
   }
 
   subtract(rhs: Fq): Fq {
-    return new Fq(this.curve, this.value - rhs.value);
+    return new Fq(this.curve, this.value.subtract(rhs.value));
   }
 
-  multiply(rhs: Fq | bigint): Fq {
+  multiply(rhs: Fq | BigInteger): Fq {
     if (rhs instanceof Fq) rhs = rhs.value;
-    return new Fq(this.curve, this.value * rhs);
+    return new Fq(this.curve, this.value.multiply(rhs));
   }
 
-  div(rhs: Fq | bigint): Fq {
-    const inv = typeof rhs === 'bigint' ? new Fq(this.curve, rhs).invert().value : rhs.invert();
+  div(rhs: Fq | BigInteger): Fq {
+    const inv = bigInt.isInstance(rhs) ? new Fq(this.curve, rhs).invert().value : rhs.invert();
     return this.multiply(inv);
   }
 
-  muli(rhs: bigint) {
-    return new Fq(this.curve, this.value * rhs % this.order);
+  muli(rhs: BigInteger) {
+    return new Fq(this.curve, this.value.multiply(rhs).mod(this.order));
   }
 
   toString() {

@@ -1,5 +1,6 @@
 import {
-  BigintTuple, ICurve
+  BigInteger, bigInt,
+  BigintTuple, ICurve, NativeBigintTuple
 } from './types';
 import {
   bitLen
@@ -14,12 +15,12 @@ const S_CURVE = Symbol('curve');
 export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
   private readonly [S_CURVE]: Curve;
 
-  static fromTuple(curve: Curve, t: BigintTuple): Fq2 {
+  static fromTuple(curve: Curve, t: BigintTuple | NativeBigintTuple): Fq2 {
     return new Fq2(curve, [new Fq(curve, t[0]), new Fq(curve, t[1])]);
   }
 
   public static ROOT(curve: Curve) {
-    return new Fq(curve, -1n);
+    return new Fq(curve, bigInt.minusOne);
   }
 
   public static MAX_BITS(curve: Curve) {
@@ -27,30 +28,27 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
   }
 
   public static ZERO(curve: Curve) {
-    return new Fq2(curve, [0n, 0n]);
+    return new Fq2(curve, [Fq.ZERO(curve), Fq.ZERO(curve)]);
   }
 
   public static ONE(curve: Curve) {
-    return new Fq2(curve, [1n, 0n]);
+    return new Fq2(curve, [Fq.ONE(curve), Fq.ZERO(curve)]);
   }
 
-  public static fromConstant(curve: Curve, c: bigint) {
-    return Fq2.fromTuple(curve, [c, 0n]);
+  public static fromConstant(curve: Curve, c: BigInteger) {
+    return Fq2.fromTuple(curve, [c, bigInt.zero]);
   }
 
   public readonly c: [Fq, Fq];
 
-  public toTuple(): [bigint, bigint] {
+  public toTuple(): [BigInteger, BigInteger] {
     return [this.c[0].value, this.c[1].value];
   }
 
-  constructor(curve: Curve, coeffs: [Fq, Fq] | [bigint, bigint] | bigint[]) {
+  constructor(curve: Curve, coeffs: [Fq, Fq]) {
     super();
     if (coeffs.length !== 2) throw new Error('Expected array with 2 elements');
-    coeffs.forEach((c: any, i: any) => {
-      if (typeof c === 'bigint') coeffs[i] = new Fq(curve, c);
-    });
-    this.c = coeffs as [Fq, Fq];
+    this.c = coeffs;
     this[S_CURVE] = curve;
   }
 
@@ -68,15 +66,15 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
     return this.c.map((c) => c.value) as BigintTuple;
   }
 
-  public sign(): bigint {
-    const p1 = this.c[0].value & 1n;
-    const p2 = this.c[1].value & 1n;
-    const u = this.c[0].isZero() ? 1n : 0n;
-    return p1 ^ ((p1^p2) & u);
+  public sign(): BigInteger {
+    const p1 = this.c[0].value.and(bigInt.one);
+    const p2 = this.c[1].value.and(bigInt.one);
+    const u = this.c[0].isZero() ? bigInt.one : bigInt.zero;
+    return p1.xor(p1.xor(p2).and(u));
   }
 
-  multiply(rhs: Fq2 | bigint): Fq2 {
-    if (typeof rhs === 'bigint')
+  multiply(rhs: Fq2 | BigInteger): Fq2 {
+    if (bigInt.isInstance(rhs))
       return new Fq2(this.curve,
         this.map<Fq, [Fq, Fq]>((c) => c.multiply(rhs))
       );
@@ -110,12 +108,12 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
   }
   mulQNR(): Fq2 {
     // assume QNR=2^i+sqrt(-1)
-    return (this.times_i().add(this.muli(BigInt(1 << this.curve.QNRI))));
+    return (this.times_i().add(this.muli(bigInt.one.shiftLeft(this.curve.QNRI))));
   }
 
   divQNR(): Fq2 {
     // assume QNR=2^i+sqrt(-1)
-    const z = new Fq2(this.curve, [Fq.fromConstant(this.curve, BigInt(1 << this.curve.QNRI)), Fq.ONE(this.curve)]);
+    const z = new Fq2(this.curve, [Fq.fromConstant(this.curve, bigInt.one.shiftLeft(this.curve.QNRI)), Fq.ONE(this.curve)]);
     return this.multiply(z.invert());
   }
 
@@ -134,14 +132,14 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
   // only a single inversion in Fp.
   invert() {
     const [a, b] = this.values;
-    const factor = new Fq(this.curve, a * a + b * b).invert();
-    return new Fq2(this.curve, [factor.multiply(new Fq(this.curve, a)), factor.multiply(new Fq(this.curve, -b))]);
+    const factor = new Fq(this.curve, a.square().add(b.square())).invert();
+    return new Fq2(this.curve, [factor.multiply(new Fq(this.curve, a)), factor.multiply(new Fq(this.curve, b.negate()))]);
   }
 
   // Raises to q**i -th power
-  frobeniusMap(power: number): Fq2 {
-    return new Fq2(this.curve, [this.c[0], this.c[1].multiply(this.curve.frobeniusCoeffses.fq2[power % 2])]);
-  }
+  // frobeniusMap(power: number): Fq2 {
+  //   return new Fq2(this.curve, [this.c[0], this.c[1].multiply(this.curve.frobeniusCoeffses.fq2[power % 2])]);
+  // }
 
   /**
    *
@@ -154,7 +152,7 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
   frobenius(): Fq2 {
     const pmod4 = Fq.Pmod4(this.curve);
     let y: Fq2;
-    if (pmod4 === 1n) {
+    if (pmod4.equals(bigInt.one)) {
       y = this;
     } else {
       y = new Fq2(this.curve, [this.c[0], this.c[1].negate()]);
@@ -164,13 +162,13 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
 
   multiplyByB() {
     const [c0, c1] = this.c;
-    const t0 = c0.multiply(4n); // 4 * c0
-    const t1 = c1.multiply(4n); // 4 * c1
+    const t0 = c0.multiply(bigInt['4']); // 4 * c0
+    const t1 = c1.multiply(bigInt['4']); // 4 * c1
     // (T0-T1) + (T0+T1)*i
     return new Fq2(this.curve,[t0.subtract(t1), t0.add(t1)]);
   }
 
-  muli(rhs: bigint) {
+  muli(rhs: BigInteger) {
     return new Fq2(
       this.curve,
       [
@@ -197,11 +195,11 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
     w1 = w1.sqrt();
     w2 = this.c[0];
     w2 = w2.add(w1);
-    w2 = w2.div(2n);
-    if (w2.qr().valueOf() != 1n) {
+    w2 = w2.div(bigInt['2']);
+    if (w2.qr().notEquals(bigInt.one)) {
       w2 = this.c[0];
       w2 = w2.subtract(w1);
-      w2 = w2.div(2n);
+      w2 = w2.div(bigInt['2']);
     }
     w2 = w2.sqrt();
     const c0 = w2;
@@ -211,7 +209,7 @@ export default class Fq2 extends FQP<Fq2, Fq, [Fq, Fq]> {
     return new Fq2(this.curve, [c0, c1]);
   }
 
-  public qr(): bigint {
+  public qr(): BigInteger {
     const w = this.conjugate()
       .multiply(this);
     return w.c[0].qr();

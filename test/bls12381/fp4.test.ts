@@ -3,7 +3,7 @@ import * as chai from 'chai';
 const expect = chai.expect;
 
 import * as lib from '../../src';
-import { BigintFour, Fq, Fq4 } from '../../src';
+import { NativeBigintFour, bigInt, Fq, Fq4 } from '../../src';
 const CURVE = lib.findCurve('Fp381BLS12') as lib.Curve;
 
 const NUM_RUNS = Number(process.env.RUNS_COUNT || 10); // reduce to 1 to shorten test time
@@ -11,9 +11,9 @@ const NUM_RUNS = Number(process.env.RUNS_COUNT || 10); // reduce to 1 to shorten
 describe('bls12-381 Fp4', () => {
   it('Fp4 equality', () => {
     fc.assert(
-      fc.property(fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4), num => {
-        const a = Fq4.fromTuple(CURVE, num as BigintFour);
-        const b = Fq4.fromTuple(CURVE, num as BigintFour);
+      fc.property(fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4), num => {
+        const a = Fq4.fromTuple(CURVE, num as NativeBigintFour);
+        const b = Fq4.fromTuple(CURVE, num as NativeBigintFour);
         expect(a.equals(b)).eq(true);
         expect(b.equals(a)).eq(true);
       }),
@@ -25,11 +25,11 @@ describe('bls12-381 Fp4', () => {
   it('Fp4 non-equality', () => {
     fc.assert(
       fc.property(
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
         (num1, num2) => {
-          const a = Fq4.fromTuple(CURVE, num1 as BigintFour);
-          const b = Fq4.fromTuple(CURVE, num2 as BigintFour);
+          const a = Fq4.fromTuple(CURVE, num1 as NativeBigintFour);
+          const b = Fq4.fromTuple(CURVE, num2 as NativeBigintFour);
           expect(a.equals(b)).eq(num1[0] === num2[0] && num1[1] === num2[1]);
           expect(b.equals(a)).eq(num1[0] === num2[0] && num1[1] === num2[1]);
         }
@@ -41,8 +41,8 @@ describe('bls12-381 Fp4', () => {
   });
   it('Fp4 square and multiplication equality', () => {
     fc.assert(
-      fc.property(fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4), num => {
-        const a = Fq4.fromTuple(CURVE, num as BigintFour);
+      fc.property(fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4), num => {
+        const a = Fq4.fromTuple(CURVE, num as NativeBigintFour);
         expect(a.square()).eql(a.multiply(a));
       }),
       {
@@ -52,15 +52,15 @@ describe('bls12-381 Fp4', () => {
   });
   it('Fp4 multiplication and add equality', () => {
     fc.assert(
-      fc.property(fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4), num => {
-        const a = Fq4.fromTuple(CURVE, num as BigintFour);
-        expect(a.multiply(0n)).eql(Fq4.ZERO(CURVE));
+      fc.property(fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4), num => {
+        const a = Fq4.fromTuple(CURVE, num as NativeBigintFour);
+        expect(a.multiply(bigInt(0))).eql(Fq4.ZERO(CURVE));
         expect(a.multiply(Fq4.ZERO(CURVE))).eql(Fq4.ZERO(CURVE));
-        expect(a.multiply(1n)).eql(a);
+        expect(a.multiply(bigInt(1))).eql(a);
         expect(a.multiply(Fq4.ONE(CURVE))).eql(a);
-        expect(a.multiply(2n)).eql(a.add(a));
-        expect(a.multiply(3n)).eql(a.add(a).add(a));
-        expect(a.multiply(4n)).eql(
+        expect(a.multiply(bigInt(2))).eql(a.add(a));
+        expect(a.multiply(bigInt(3))).eql(a.add(a).add(a));
+        expect(a.multiply(bigInt(4))).eql(
           a
             .add(a)
             .add(a)
@@ -75,11 +75,11 @@ describe('bls12-381 Fp4', () => {
   it('Fp4 multiplication commutatity', () => {
     fc.assert(
       fc.property(
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
         (num1, num2) => {
-          const a = Fq4.fromTuple(CURVE, num1 as BigintFour);
-          const b = Fq4.fromTuple(CURVE, num2 as BigintFour);
+          const a = Fq4.fromTuple(CURVE, num1 as NativeBigintFour);
+          const b = Fq4.fromTuple(CURVE, num2 as NativeBigintFour);
           expect(a.multiply(b)).eql(b.multiply(a));
         }
       ),
@@ -91,13 +91,13 @@ describe('bls12-381 Fp4', () => {
   it('Fp4 multiplication associativity', () => {
     fc.assert(
       fc.property(
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
         (num1, num2, num3) => {
-          const a = Fq4.fromTuple(CURVE, num1 as BigintFour);
-          const b = Fq4.fromTuple(CURVE, num2 as BigintFour);
-          const c = Fq4.fromTuple(CURVE, num3 as BigintFour);
+          const a = Fq4.fromTuple(CURVE, num1 as NativeBigintFour);
+          const b = Fq4.fromTuple(CURVE, num2 as NativeBigintFour);
+          const c = Fq4.fromTuple(CURVE, num3 as NativeBigintFour);
           expect(a.multiply(b.multiply(c))).eql(a.multiply(b).multiply(c));
         }
       ),
@@ -109,13 +109,13 @@ describe('bls12-381 Fp4', () => {
   it('Fp4 multiplication distributivity', () => {
     fc.assert(
       fc.property(
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
         (num1, num2, num3) => {
-          const a = Fq4.fromTuple(CURVE, num1 as BigintFour);
-          const b = Fq4.fromTuple(CURVE, num2 as BigintFour);
-          const c = Fq4.fromTuple(CURVE, num3 as BigintFour);
+          const a = Fq4.fromTuple(CURVE, num1 as NativeBigintFour);
+          const b = Fq4.fromTuple(CURVE, num2 as NativeBigintFour);
+          const c = Fq4.fromTuple(CURVE, num3 as NativeBigintFour);
           expect(a.multiply(b.add(c))).eql(
             b.multiply(a).add(c.multiply(a))
           );
@@ -128,9 +128,9 @@ describe('bls12-381 Fp4', () => {
   });
   it('Fp4 division with one equality', () => {
     fc.assert(
-      fc.property(fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4), num => {
-        const a = Fq4.fromTuple(CURVE, num as BigintFour);
-        expect(a.div(1n)).eql(a);
+      fc.property(fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4), num => {
+        const a = Fq4.fromTuple(CURVE, num as NativeBigintFour);
+        expect(a.div(bigInt.one)).eql(a);
         expect(a.div(Fq4.ONE(CURVE))).eql(a);
         expect(a.div(a)).eql(Fq4.ONE(CURVE));
       }),
@@ -141,8 +141,8 @@ describe('bls12-381 Fp4', () => {
   });
   it('Fp4 division with zero equality', () => {
     fc.assert(
-      fc.property(fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4), num => {
-        const a = Fq4.fromTuple(CURVE, num as BigintFour);
+      fc.property(fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4), num => {
+        const a = Fq4.fromTuple(CURVE, num as NativeBigintFour);
         expect(Fq4.ZERO(CURVE).div(a)).eql(Fq4.ZERO(CURVE));
       }),
       {
@@ -153,13 +153,13 @@ describe('bls12-381 Fp4', () => {
   it('Fp4 division distributivity', () => {
     fc.assert(
       fc.property(
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
         (num1, num2, num3) => {
-          const a = Fq4.fromTuple(CURVE, num1 as BigintFour);
-          const b = Fq4.fromTuple(CURVE, num2 as BigintFour);
-          const c = Fq4.fromTuple(CURVE, num3 as BigintFour);
+          const a = Fq4.fromTuple(CURVE, num1 as NativeBigintFour);
+          const b = Fq4.fromTuple(CURVE, num2 as NativeBigintFour);
+          const c = Fq4.fromTuple(CURVE, num3 as NativeBigintFour);
           expect(a.add(b).div(c)).eql(a.div(c).add(b.div(c)));
         }
       ),
@@ -170,8 +170,8 @@ describe('bls12-381 Fp4', () => {
   });
   it('Fp4 addition with zero equality', () => {
     fc.assert(
-      fc.property(fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4), num => {
-        const a = Fq4.fromTuple(CURVE, num as BigintFour);
+      fc.property(fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4), num => {
+        const a = Fq4.fromTuple(CURVE, num as NativeBigintFour);
         expect(a.add(Fq4.ZERO(CURVE))).eql(a);
       }),
       {
@@ -182,11 +182,11 @@ describe('bls12-381 Fp4', () => {
   it('Fp4 addition commutatity', () => {
     fc.assert(
       fc.property(
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
         (num1, num2) => {
-          const a = Fq4.fromTuple(CURVE, num1 as BigintFour);
-          const b = Fq4.fromTuple(CURVE, num2 as BigintFour);
+          const a = Fq4.fromTuple(CURVE, num1 as NativeBigintFour);
+          const b = Fq4.fromTuple(CURVE, num2 as NativeBigintFour);
           expect(a.add(b)).eql(b.add(a));
         }
       ),
@@ -198,13 +198,13 @@ describe('bls12-381 Fp4', () => {
   it('Fp4 add associativity', () => {
     fc.assert(
       fc.property(
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
         (num1, num2, num3) => {
-          const a = Fq4.fromTuple(CURVE, num1 as BigintFour);
-          const b = Fq4.fromTuple(CURVE, num2 as BigintFour);
-          const c = Fq4.fromTuple(CURVE, num3 as BigintFour);
+          const a = Fq4.fromTuple(CURVE, num1 as NativeBigintFour);
+          const b = Fq4.fromTuple(CURVE, num2 as NativeBigintFour);
+          const c = Fq4.fromTuple(CURVE, num3 as NativeBigintFour);
           expect(a.add(b.add(c))).eql(a.add(b).add(c));
         }
       ),
@@ -215,8 +215,8 @@ describe('bls12-381 Fp4', () => {
   });
   it('Fp4 minus zero equality', () => {
     fc.assert(
-      fc.property(fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4), num => {
-        const a = Fq4.fromTuple(CURVE, num as BigintFour);
+      fc.property(fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4), num => {
+        const a = Fq4.fromTuple(CURVE, num as NativeBigintFour);
         expect(a.subtract(Fq4.ZERO(CURVE))).eql(a);
         expect(a.subtract(a)).eql(Fq4.ZERO(CURVE));
       }),
@@ -228,14 +228,14 @@ describe('bls12-381 Fp4', () => {
   it('Fp4 minus and negative equality', () => {
     fc.assert(
       fc.property(
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
         (num1) => {
-          const a = Fq4.fromTuple(CURVE, num1 as BigintFour);
-          const b = Fq4.fromTuple(CURVE, num1 as BigintFour);
+          const a = Fq4.fromTuple(CURVE, num1 as NativeBigintFour);
+          const b = Fq4.fromTuple(CURVE, num1 as NativeBigintFour);
           expect(Fq4.ZERO(CURVE).subtract(a)).eql(a.negate());
           expect(a.subtract(b)).eql(a.add(b.negate()));
-          expect(a.subtract(b)).eql(a.add(b.multiply(-1n)));
+          expect(a.subtract(b)).eql(a.add(b.multiply(bigInt.minusOne)));
         }
       ),
       {
@@ -245,10 +245,10 @@ describe('bls12-381 Fp4', () => {
   });
   it('Fp4 negative equality', () => {
     fc.assert(
-      fc.property(fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4), num => {
-        const a = Fq4.fromTuple(CURVE, num as BigintFour);
+      fc.property(fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4), num => {
+        const a = Fq4.fromTuple(CURVE, num as NativeBigintFour);
         expect(a.negate()).eql(Fq4.ZERO(CURVE).subtract(a));
-        expect(a.negate()).eql(a.multiply(-1n));
+        expect(a.negate()).eql(a.multiply(bigInt.minusOne));
       }),
       {
         numRuns: NUM_RUNS
@@ -258,11 +258,11 @@ describe('bls12-381 Fp4', () => {
   it('Fp4 division and multiplitaction equality', () => {
     fc.assert(
       fc.property(
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
-        fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
+        fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4),
         (num1, num2) => {
-          const a = Fq4.fromTuple(CURVE, num1 as BigintFour);
-          const b = Fq4.fromTuple(CURVE, num2 as BigintFour);
+          const a = Fq4.fromTuple(CURVE, num1 as NativeBigintFour);
+          const b = Fq4.fromTuple(CURVE, num2 as NativeBigintFour);
           expect(a.div(b)).eql(a.multiply(b.invert()));
         }
       ),
@@ -273,12 +273,12 @@ describe('bls12-381 Fp4', () => {
   });
   it('Fp4 pow and multiplitaction equality', () => {
     fc.assert(
-      fc.property(fc.array(fc.bigInt(1n, Fq.ORDER(CURVE)), 4, 4), num => {
-        const a = Fq4.fromTuple(CURVE, num as BigintFour);
-        expect(a.pow(0n)).eql(Fq4.ONE(CURVE));
-        expect(a.pow(1n)).eql(a);
-        expect(a.pow(2n)).eql(a.multiply(a));
-        expect(a.pow(3n)).eql(a.multiply(a).multiply(a));
+      fc.property(fc.array(fc.bigInt(1n, BigInt(Fq.ORDER(CURVE).toString())), 4, 4), num => {
+        const a = Fq4.fromTuple(CURVE, num as NativeBigintFour);
+        expect(a.pow(bigInt(0))).eql(Fq4.ONE(CURVE));
+        expect(a.pow(bigInt(1))).eql(a);
+        expect(a.pow(bigInt(2))).eql(a.multiply(a));
+        expect(a.pow(bigInt(3))).eql(a.multiply(a).multiply(a));
       }),
       {
         numRuns: NUM_RUNS

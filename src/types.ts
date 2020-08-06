@@ -1,5 +1,13 @@
+import * as bigInt from 'big-integer';
+import { BigInteger } from 'big-integer';
+
+export {
+  bigInt,
+  BigInteger
+};
+
 export type Bytes = Uint8Array | string;
-export type PrivateKey = Bytes | bigint | number;
+export type PrivateKey = Bytes | BigInteger | number;
 
 export type BufferConstructor<T extends Uint8Array> = {
   from(data: number[]): T;
@@ -17,16 +25,16 @@ export interface Field<T> {
   add(rhs: T): T;
   subtract(rhs: T): T;
   invert(): T;
-  multiply(rhs: T | bigint): T;
+  multiply(rhs: T | BigInteger): T;
   square(): T;
-  pow(n: bigint): T;
-  div(rhs: T | bigint): T;
+  pow(n: BigInteger): T;
+  div(rhs: T | BigInteger): T;
 }
 
 export type FieldStatic<T extends Field<T>> = {
   ZERO(curve: Curve): T;
   ONE(curve: Curve): T;
-  fromConstant(curve: Curve, c: bigint): T;
+  fromConstant(curve: Curve, c: BigInteger): T;
 };
 
 export interface IECPoint<T extends Field<T>> {
@@ -38,21 +46,33 @@ export interface IECPoint<T extends Field<T>> {
   validatePoint(): boolean;
 }
 
-export type BigintTuple = [bigint, bigint];
-
-// prettier-ignore
+export type BigintTuple = [
+  BigInteger, BigInteger
+];
 export type BigintFour = [
+  BigInteger, BigInteger, BigInteger, BigInteger
+];
+export type BigintSix = [
+  BigInteger, BigInteger, BigInteger,
+  BigInteger, BigInteger, BigInteger
+];
+export type BigintTwelve = [
+  BigInteger, BigInteger, BigInteger, BigInteger,
+  BigInteger, BigInteger, BigInteger, BigInteger,
+  BigInteger, BigInteger, BigInteger, BigInteger
+];
+
+export type NativeBigintTuple = [
+  bigint, bigint
+];
+export type NativeBigintFour = [
   bigint, bigint, bigint, bigint
 ];
-
-// prettier-ignore
-export type BigintSix = [
+export type NativeBigintSix = [
   bigint, bigint, bigint,
-  bigint, bigint, bigint,
+  bigint, bigint, bigint
 ];
-
-// prettier-ignore
-export type BigintTwelve = [
+export type NativeBigintTwelve = [
   bigint, bigint, bigint, bigint,
   bigint, bigint, bigint, bigint,
   bigint, bigint, bigint, bigint
@@ -80,8 +100,8 @@ export enum PairingFriendly {
 }
 
 export interface INonResidues {
-  fp: bigint[];
-  fp2: bigint[];
+  fp: BigInteger[];
+  fp2: BigInteger[];
 }
 
 export interface ICurve {
@@ -97,27 +117,27 @@ export interface ICurve {
 
   nonresidues: INonResidues;
 
-  A: bigint;
-  B: bigint;
-  B2: [bigint, bigint];
+  A: BigInteger;
+  B: BigInteger;
+  B2: [BigInteger, BigInteger];
 
   // x (only positive)
-  x: bigint;
+  x: BigInteger;
 
   // a characteristic
-  P: bigint;
+  P: BigInteger;
 
   // an order
-  r: bigint;
+  r: BigInteger;
 
   // a cofactor
-  h: bigint;
+  h: BigInteger;
 
-  Gx: bigint;
-  Gy: bigint;
+  Gx: BigInteger;
+  Gy: BigInteger;
 
-  G2x: [bigint, bigint];
-  G2y: [bigint, bigint];
+  G2x: [BigInteger, BigInteger];
+  G2y: [BigInteger, BigInteger];
 }
 
 import Curve from './curve';

@@ -1,4 +1,7 @@
-import {BigintSix, BigintTwelve, FieldStatic, PairingFriendly, SignOfX} from './types';
+import {
+  BigInteger, bigInt,
+  BigintSix, BigintTwelve, FieldStatic, PairingFriendly, SignOfX, NativeBigintTwelve
+} from './types';
 import {FQP} from './intl';
 import Curve from './curve';
 import Fq from './fq';
@@ -97,6 +100,7 @@ function expHardPartBLS12(x: Fq12)
   a7 = a7.multiply(x); // x^(z^2-2z+1) = x^c3
   y = a7.frobenius3();
   y = y.multiply(a1);
+
   return y;
 }
 /*
@@ -159,14 +163,23 @@ export default class Fq12 extends FQP<Fq12, Fq6, [Fq6, Fq6]> {
     return new Fq12(curve, [Fq6.ONE(curve), Fq6.ZERO(curve)]);
   }
 
-  public static fromConstant(curve: Curve, c: bigint) {
-    return Fq2.fromTuple(curve, [c, 0n]);
+  public static fromConstant(curve: Curve, c: BigInteger) {
+    return Fq2.fromTuple(curve, [c, bigInt.zero]);
   }
 
-  static fromTuple(curve: Curve, t: BigintTwelve): Fq12 {
+  static fromTuple(curve: Curve, t: BigintTwelve | NativeBigintTwelve): Fq12 {
+    const q = (t as any[]).map<Fq>(v => (typeof v === 'bigint' || bigInt.isInstance(v)) ? new Fq(curve, v) : v);
     return new Fq12(curve, [
-      Fq6.fromTuple(curve, t.slice(0, 6) as BigintSix),
-      Fq6.fromTuple(curve, t.slice(6, 12) as BigintSix)
+      new Fq6(curve, [
+        new Fq2(curve, [q[0], q[1]]),
+        new Fq2(curve, [q[2], q[3]]),
+        new Fq2(curve, [q[4], q[5]])
+      ]),
+      new Fq6(curve, [
+        new Fq2(curve, [q[6], q[7]]),
+        new Fq2(curve, [q[8], q[9]]),
+        new Fq2(curve, [q[10], q[11]])
+      ])
     ]);
   }
 
@@ -176,7 +189,7 @@ export default class Fq12 extends FQP<Fq12, Fq6, [Fq6, Fq6]> {
         out.push(...cur.toTuple());
         return out;
       },
-      [] as bigint[]
+      [] as BigInteger[]
     ) as BigintSix;
     // return [...this.c.map(v => v.toTuple())] as any;
   }
@@ -199,8 +212,8 @@ export default class Fq12 extends FQP<Fq12, Fq6, [Fq6, Fq6]> {
     return `Fq12(${this.c[0]} + ${this.c[1]} * w)`;
   }
 
-  multiply(rhs: Fq12 | bigint) {
-    if (typeof rhs === 'bigint')
+  multiply(rhs: Fq12 | BigInteger) {
+    if (bigInt.isInstance(rhs))
       return new Fq12(this.curve, [this.c[0].multiply(rhs), this.c[1].multiply(rhs)]);
     const [c0, c1] = this.c;
     const [r0, r1] = rhs.c;
@@ -359,19 +372,19 @@ export default class Fq12 extends FQP<Fq12, Fq6, [Fq6, Fq6]> {
   }
 
   // Raises to q**i -th power
-  frobeniusMap(power: number) {
-    const [c0, c1] = this.c;
-    const r0 = c0.frobeniusMap(power);
-    const [c1_0, c1_1, c1_2] = c1.frobeniusMap(power).c;
-    return new Fq12(this.curve, [
-      r0,
-      new Fq6(this.curve, [
-        c1_0.multiply(this.curve.frobeniusCoeffses.fq12[power % 12]),
-        c1_1.multiply(this.curve.frobeniusCoeffses.fq12[power % 12]),
-        c1_2.multiply(this.curve.frobeniusCoeffses.fq12[power % 12]),
-      ]),
-    ]);
-  }
+  // frobeniusMap(power: number) {
+  //   const [c0, c1] = this.c;
+  //   const r0 = c0.frobeniusMap(power);
+  //   const [c1_0, c1_1, c1_2] = c1.frobeniusMap(power).c;
+  //   return new Fq12(this.curve, [
+  //     r0,
+  //     new Fq6(this.curve, [
+  //       c1_0.multiply(this.curve.frobeniusCoeffses.fq12[power % 12]),
+  //       c1_1.multiply(this.curve.frobeniusCoeffses.fq12[power % 12]),
+  //       c1_2.multiply(this.curve.frobeniusCoeffses.fq12[power % 12]),
+  //     ]),
+  //   ]);
+  // }
 
   // https://eprint.iacr.org/2009/565.pdf
   public cyclotomicSquare(): Fq12 {
@@ -384,25 +397,25 @@ export default class Fq12 extends FQP<Fq12, Fq6, [Fq6, Fq6]> {
     const t9 = t8.mulByNonresidue(); // T8 * (u + 1)
     return new Fq12(this.curve, [
       new Fq6(this.curve, [
-        t3.subtract(c0c0).multiply(2n).add(t3), // 2 * (T3 - c0c0)  + T3
-        t5.subtract(c0c1).multiply(2n).add(t5), // 2 * (T5 - c0c1)  + T5
-        t7.subtract(c0c2).multiply(2n).add(t7),
+        t3.subtract(c0c0).multiply(bigInt['2']).add(t3), // 2 * (T3 - c0c0)  + T3
+        t5.subtract(c0c1).multiply(bigInt['2']).add(t5), // 2 * (T5 - c0c1)  + T5
+        t7.subtract(c0c2).multiply(bigInt['2']).add(t7),
       ]), // 2 * (T7 - c0c2)  + T7
       new Fq6(this.curve, [
-        t9.add(c1c0).multiply(2n).add(t9), // 2 * (T9 + c1c0) + T9
-        t4.add(c1c1).multiply(2n).add(t4), // 2 * (T4 + c1c1) + T4
-        t6.add(c1c2).multiply(2n).add(t6),
+        t9.add(c1c0).multiply(bigInt['2']).add(t9), // 2 * (T9 + c1c0) + T9
+        t4.add(c1c1).multiply(bigInt['2']).add(t4), // 2 * (T4 + c1c1) + T4
+        t6.add(c1c2).multiply(bigInt['2']).add(t6),
       ]),
     ]); // 2 * (T6 + c1c2) + T6
   }
 
-  public cyclotomicExp(n: bigint) {
+  public cyclotomicExp(n: BigInteger) {
     // return this.pow(n);
     let z = Fq12.ONE(this.curve);
     const X_LEN = bitLen(this.curve.x);
     for (let i = X_LEN - 1; i >= 0; i--) {
       z = z.cyclotomicSquare();
-      if (bitGet(n, i)) z = z.multiply(this);
+      if (!bitGet(n, i).isZero()) z = z.multiply(this);
     }
     return z;
   }
@@ -439,7 +452,7 @@ export default class Fq12 extends FQP<Fq12, Fq6, [Fq6, Fq6]> {
     ];
     const y: Fq2[] = new Array<Fq2>();
     y[0] = x[0];
-    if (pmod4 === 1n) {
+    if (pmod4.equals(bigInt.one)) {
       for (let i = 1; i < 6; i++) {
         y[i] = x[i].multiply(this.curve.g2Tbl[i]);
       }

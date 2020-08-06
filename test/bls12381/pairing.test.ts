@@ -3,7 +3,7 @@ import * as chai from 'chai';
 const expect = chai.expect;
 
 import * as lib from '../../src';
-import { PointG1, PointG2, Fq12, pairing } from '../../src';
+import { bigInt, PointG1, PointG2, Fq12, pairing } from '../../src';
 
 const CURVE = lib.findCurve('Fp381BLS12') as lib.Curve;
 
@@ -65,12 +65,12 @@ describe('bls12-381 pairing', () => {
   });
   it('should create right pairing with bilinearity on G1', () => {
     const p1 = pairing(G1, G2);
-    const p2 = pairing(G1.multiply(2n), G2);
+    const p2 = pairing(G1.multiply(bigInt(2)), G2);
     expect(p1.multiply(p1)).eql(p2);
   });
   it('pairing should not degenerate', () => {
     const p1 = pairing(G1, G2);
-    const p2 = pairing(G1.multiply(2n), G2);
+    const p2 = pairing(G1.multiply(bigInt(2)), G2);
     const p3 = pairing(G1, G2.negate());
     expect(p1).not.eql(p2);
     expect(p1).not.eql(p3);
@@ -78,12 +78,12 @@ describe('bls12-381 pairing', () => {
   });
   it('should create right pairing with bilinearity on G2', () => {
     const p1 = pairing(G1, G2);
-    const p2 = pairing(G1, G2.multiply(2n));
+    const p2 = pairing(G1, G2.multiply(bigInt(2)));
     expect(p1.multiply(p1)).eql(p2);
   });
   it('should create right pairing composite check', () => {
-    const p1 = pairing(G1.multiply(37n), G2.multiply(27n));
-    const p2 = pairing(G1.multiply(999n), G2);
+    const p1 = pairing(G1.multiply(bigInt(37)), G2.multiply(bigInt(27)));
+    const p2 = pairing(G1.multiply(bigInt(999)), G2);
     expect(p1).eql(p2);
   });
 });

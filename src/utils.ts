@@ -1,4 +1,5 @@
 import {
+  BigInteger, bigInt,
   BufferConstructor,
   Bytes,
   ICurve,
@@ -7,68 +8,88 @@ import {
 import Fq from './fq';
 import PointG1 from './point-g1';
 
-export function mod(a: bigint, b: bigint) {
-  const res = a % b;
-  return res >= 0n ? res : b + res;
+export function mod(a: BigInteger, b: BigInteger) {
+  const res = a.mod(b);
+  return res.isNegative() ? b.add(res) : res;
+  // return a.mod(b);
 }
 
-export function powMod(a: bigint, power: bigint, m: bigint) {
-  let res = 1n;
-  while (power > 0n) {
-    if (power & 1n) {
-      res = mod(res * a, m);
+export function powMod(a: BigInteger, power: BigInteger, m: BigInteger) {
+  let res = bigInt.one;
+  while (power.greater(bigInt.zero)) {
+    if (power.isOdd()) { // n & 1
+      res = mod(res.multiply(a), m);
     }
-    power >>= 1n;
-    a = mod(a * a, m);
+    power = power.shiftRight(bigInt.one);
+    a = mod(a.square(), m);
   }
   return res;
+  // return a.modPow(power, m);
 }
 
-export function powMul(a1: bigint, b1: bigint, p: bigint) {
-  let a = a1 % p;
-  let b = b1 % p;
-  if (a < 0)
-    a += p;
-  if (b < 0)
-    b += p;
-  return a * b % p;
+export function powMul(a1: BigInteger, b1: BigInteger, p: BigInteger) {
+  let a = a1.mod(p);
+  let b = b1.mod(p);
+  if (a.isNegative())
+    a = a.add(p);
+  if (b.isNegative())
+    b = b.add(p);
+  return a.multiply(b).mod(p);
+  // return a1.multiply(b1).mod(p);
 }
 
-export function sqrtMod(a: bigint, p: bigint) {
-  if ((p % 4n) == 3n) {
-    return powMod(a, (p + 1n) / 4n, p);
+export function sqrtMod(a: BigInteger, p: BigInteger) {
+  // if ((p % 4n) == 3n) {
+  //   return powMod(a, (p + 1n) / 4n, p);
+  // }
+  //
+  // if ((p % 8n) === 5n) {
+  //   const b = (p - 5n) / 8n;
+  //   let i = a * 2n;
+  //   const v = powMod(i, b, p);
+  //   i = powMul(i, v, p);
+  //   i = powMul(i, v, p);
+  //   i -= 1n;
+  //   let r = powMul(a, v, p);
+  //   r = powMul(r, i, p);
+  //   return r;
+  // }
+  //
+  // return 0n;
+  if (p.mod(bigInt['4']).equals(bigInt['3'])) {
+    return a.modPow(p.add(bigInt.one).divide(bigInt['4']), p);
   }
 
-  if ((p % 8n) === 5n) {
-    const b = (p - 5n) / 8n;
-    let i = a * 2n;
+  if (p.mod(bigInt['8']).equals(bigInt['5'])) {
+    const b = (p.subtract(bigInt['5'])).divide(bigInt['8']);
+    let i = a.multiply(bigInt['2']);
     const v = powMod(i, b, p);
     i = powMul(i, v, p);
     i = powMul(i, v, p);
-    i -= 1n;
+    i = i.subtract(bigInt.one);
     let r = powMul(a, v, p);
     r = powMul(r, i, p);
     return r;
   }
 
-  return 0n;
+  return bigInt.zero;
 }
 
-// Amount of bits inside bigint
-export function bitLen(n: bigint): number {
+// Amount of bits inside BigInteger
+export function bitLen(n: BigInteger): number {
   let len: number;
-  for (len = 0; n > 0n; n >>= 1n, len += 1);
+  for (len = 0; n.greater(bigInt.zero); n = n.shiftRight(bigInt.one), len += 1);
   return len;
 }
 
-// Get single bit from bigint at pos
-export function bitGet(n: bigint, pos: number) {
-  return (n >> BigInt(pos)) & 1n;
+// Get single bit from BigInteger at pos
+export function bitGet(n: BigInteger, pos: number): BigInteger {
+  return (n.shiftRight(pos)).and(bigInt.one);
 }
 
 
-export function hexToNumberBE(hex: string) {
-  return BigInt(`0x${hex}`);
+export function hexToNumberBE(hex: string): BigInteger {
+  return bigInt(hex, 16);
 }
 
 export function hexToBytes(hex: string) {
@@ -91,13 +112,13 @@ export function concatBytes<T extends Uint8Array>(bufferConstructor: BufferConst
   );
 }
 
-export function bytesToNumberBE(bytes: Bytes): bigint {
+export function bytesToNumberBE(bytes: Bytes): BigInteger {
   if (typeof bytes === 'string') {
     return hexToNumberBE(bytes);
   }
-  let value = 0n;
+  let value: BigInteger = bigInt.zero;
   for (let i = bytes.length - 1, j = 0; i >= 0; i--, j++) {
-    value += (BigInt(bytes[i]) & 255n) << (8n * BigInt(j));
+    value = value.add(bigInt(bytes[i]).and(0xff).shiftLeft(8 * j));
   }
   return value;
 }
@@ -113,7 +134,7 @@ export function padStart<T extends Uint8Array>(bufferConstructor: BufferConstruc
   return concatBytes(bufferConstructor, bufferConstructor.from(elements), bytes);
 }
 
-export function toBytesBE<TBUF extends Uint8Array>(bufferConstructor: BufferConstructor<TBUF>, num: bigint | number | string, padding: number = 0): TBUF {
+export function toBytesBE<TBUF extends Uint8Array>(bufferConstructor: BufferConstructor<TBUF>, num: BigInteger | number | string, padding: number = 0): TBUF {
   let hex = typeof num === 'string' ? num : num.toString(16);
   hex = hex.length & 1 ? `0${hex}` : hex;
   const len = hex.length / 2;
@@ -124,9 +145,9 @@ export function toBytesBE<TBUF extends Uint8Array>(bufferConstructor: BufferCons
   return padStart(bufferConstructor, u8, padding, 0);
 }
 
-export function toBigInt(num: string | Uint8Array | bigint | number) {
+export function toBigInt(num: string | Uint8Array | BigInteger | number): BigInteger {
   if (typeof num === 'string') return hexToNumberBE(num);
-  if (typeof num === 'number') return BigInt(num);
+  if (typeof num === 'number') return bigInt(num);
   if (num instanceof Uint8Array) return bytesToNumberBE(num);
   return num;
 }

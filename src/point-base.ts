@@ -1,4 +1,5 @@
 import {
+  BigInteger, bigInt,
   CurveType, Field, ICurve, IECPoint, PairingFriendly, FieldStatic
 } from './types';
 import {
@@ -147,7 +148,7 @@ export abstract class ProjectivePoint<T extends Field<T>, TP extends ProjectiveP
   }
 
   // MONTGOMERY curve maybe some different
-  private wNAF(n: bigint): [this, this] {
+  private wNAF(n: BigInteger): [this, this] {
     let W: number, precomputes: this[];
     if (this._MPRECOMPUTES) {
       [W, precomputes] = this._MPRECOMPUTES;
@@ -161,22 +162,22 @@ export abstract class ProjectivePoint<T extends Field<T>, TP extends ProjectiveP
     const windows = Math.ceil(this.maxBits() / W);
     // 2^(W-1), since we use wNAF, we only need W-1 bits
     const windowSize = 2 ** (W - 1);
-    const mask = BigInt(2 ** W - 1); // Create mask with W ones: 0b1111 for W=4 etc.
+    const mask = bigInt(2 ** W - 1); // Create mask with W ones: 0b1111 for W=4 etc.
     const maxNumber = 2 ** W;
-    const shiftBy = BigInt(W);
+    const shiftBy = bigInt(W);
 
     for (let window = 0; window < windows; window++) {
       const offset = window * windowSize;
       // Extract W bits.
-      let wbits = Number(n & mask);
+      let wbits = n.and(mask).toJSNumber();
       // Shift number by W bits.
-      n >>= shiftBy;
+      n = n.shiftRight(shiftBy);
 
       // If the bits are bigger than max size, we'll split those.
       // +224 => 256 - 32
       if (wbits > windowSize) {
         wbits -= maxNumber;
-        n += 1n;
+        n = n.add(bigInt.one);
       }
 
       // Check if we're onto Zero point.
@@ -192,11 +193,11 @@ export abstract class ProjectivePoint<T extends Field<T>, TP extends ProjectiveP
   }
 
   // Constant time multiplication. Uses wNAF.
-  multiply(scalar: number | bigint | Fq): this {
+  multiply(scalar: number | BigInteger | Fq): this {
     let n = scalar;
     if (n instanceof Fq) n = n.value;
-    if (typeof n === 'number') n = BigInt(n);
-    if (n <= 0n)
+    if (typeof n === 'number') n = bigInt(n);
+    if (n.lesserOrEquals(bigInt.zero))
       throw new Error('ProjectivePoint#multiply: invalid scalar, expected positive integer');
     if (bitLen(n) > this.maxBits())
       throw new Error(
@@ -208,11 +209,11 @@ export abstract class ProjectivePoint<T extends Field<T>, TP extends ProjectiveP
   // Non-constant-time multiplication. Uses double-and-add algorithm.
   // It's faster, but should only be used when you don't care about
   // an exposed private key e.g. sig verification.
-  multiplyUnsafe(scalar: number | bigint | Fq): this {
+  multiplyUnsafe(scalar: number | BigInteger | Fq): this {
     let n = scalar;
     if (n instanceof Fq) n = n.value;
-    if (typeof n === 'number') n = BigInt(n);
-    if (n <= 0) {
+    if (typeof n === 'number') n = bigInt(n);
+    if (n.lesserOrEquals(bigInt.zero)) {
       throw new Error('Point#multiply: invalid scalar, expected positive integer');
     }
     if (bitLen(n) > this.maxBits())
@@ -221,12 +222,12 @@ export abstract class ProjectivePoint<T extends Field<T>, TP extends ProjectiveP
       );
     let p = this.getZero();
     let d: this = this;
-    while (n > 0n) {
-      if (n & 1n) {
+    while (n.greater(bigInt.zero)) {
+      if (n.isOdd()) { // n & 1
         p = p.add(d);
       }
       d = d.double();
-      n >>= 1n;
+      n = n.shiftRight(1);
     }
     return p;
   }
@@ -246,8 +247,8 @@ export abstract class ProjectivePoint<T extends Field<T>, TP extends ProjectiveP
     if (this.curve.pairingFriendly === PairingFriendly.BLS) {
       if (this.isZero()) return true;
       const {x, y, z} = this;
-      const left = y.pow(2n).multiply(z).subtract(x.pow(3n));
-      const right = b.multiply(z.pow(3n));
+      const left = y.pow(bigInt['2']).multiply(z).subtract(x.pow(bigInt['3']));
+      const right = b.multiply(z.pow(bigInt['3']));
       return left.equals(right);
     }
     const [x, y] = this.toAffine();

@@ -1,18 +1,24 @@
 import {
-  ICurve, BigintFour, FieldStatic
+  BigInteger, bigInt,
+  ICurve, BigintFour, FieldStatic, NativeBigintFour
 } from './types';
 import {
   FQP
 } from './intl';
 import Curve from './curve';
+import Fq from './fq';
 import Fq2 from './fq2';
 
 const S_CURVE = Symbol('curve');
 export default class Fq4 extends FQP<Fq4, Fq2, [Fq2, Fq2]> {
   private readonly [S_CURVE]: Curve;
 
-  static fromTuple(curve: Curve, t: BigintFour): Fq4 {
-    return new Fq4(curve, [new Fq2(curve, t.slice(0, 2)), new Fq2(curve, t.slice(2, 4))]);
+  static fromTuple(curve: Curve, t: BigintFour | NativeBigintFour): Fq4 {
+    const q = (t as any[]).map<Fq>(v => (typeof v === 'bigint' || bigInt.isInstance(v)) ? new Fq(curve, v) : v);
+    return new Fq4(curve, [
+      new Fq2(curve, [q[0], q[1]]),
+      new Fq2(curve, [q[2], q[3]])
+    ]);
   }
 
   public static ZERO(curve: Curve) {
@@ -23,8 +29,8 @@ export default class Fq4 extends FQP<Fq4, Fq2, [Fq2, Fq2]> {
     return new Fq4(curve, [Fq2.ONE(curve), Fq2.ZERO(curve)]);
   }
 
-  public static fromConstant(curve: Curve, c: bigint) {
-    return Fq4.fromTuple(curve, [c, 0n, 0n, 0n]);
+  public static fromConstant(curve: Curve, c: BigInteger) {
+    return Fq4.fromTuple(curve, [c, bigInt.zero, bigInt.zero, bigInt.zero]);
   }
 
   public toTuple(): BigintFour {
@@ -33,7 +39,7 @@ export default class Fq4 extends FQP<Fq4, Fq2, [Fq2, Fq2]> {
         out.push(...cur.toTuple());
         return out;
       },
-      [] as bigint[]
+      [] as BigInteger[]
     ) as BigintFour;
     // return [...this.c.map(v => v.toTuple())] as any;
   }
@@ -58,8 +64,8 @@ export default class Fq4 extends FQP<Fq4, Fq2, [Fq2, Fq2]> {
   //   return this.c[0].subtract(this.c[1]);
   // }
 
-  multiply(rhs: Fq4 | bigint) {
-    if (typeof rhs === 'bigint')
+  multiply(rhs: Fq4 | BigInteger) {
+    if (bigInt.isInstance(rhs))
       return new Fq4(this.curve, [this.c[0].multiply(rhs), this.c[1].multiply(rhs)]);
     let [c0, c1] = this.c;
     const [r0, r1] = rhs.c;
